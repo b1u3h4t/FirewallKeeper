@@ -131,11 +131,11 @@ func Load(path string) (*Config, error) {
 		interval = 300
 	}
 
-	stateFile := raw.StateFile
+	stateFile := envOr(raw.StateFile, "STATE_FILE")
 	if stateFile == "" {
-		stateFile = "~/.cache/FirewallKeeper/state.json"
+		stateFile = defaultStateFile()
 	}
-	stateFile = expandHome(stateFile)
+	stateFile = resolveStatePath(stateFile)
 
 	removeOld := true
 	if raw.RemoveOldIP != nil {
@@ -178,15 +178,59 @@ func envOr(value, envName string) string {
 	return strings.TrimSpace(os.Getenv(envName))
 }
 
-func expandHome(path string) string {
+func defaultStateFile() string {
+	if inDocker() {
+		return "/data/state.json"
+	}
+	return "~/.cache/FirewallKeeper/state.json"
+}
+
+func resolveStatePath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return defaultStateFile()
+	}
 	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return path
+		expanded := expandHome(path)
+		if strings.HasPrefix(expanded, "~/") || isUnsafeContainerHomePath(expanded) {
+			if inDocker() {
+				return "/data/state.json"
+			}
+			return expanded
 		}
-		return filepath.Join(home, path[2:])
+		return expanded
 	}
 	return path
+}
+
+// inDocker 检测是否在容器内运行。
+func inDocker() bool {
+	if os.Getenv("DOCKER") == "1" {
+		return true
+	}
+	_, err := os.Stat("/.dockerenv")
+	return err == nil
+}
+
+// isUnsafeContainerHomePath：Alpine 非 root 用户常见 HOME=/，~/.cache 会变成 /.cache。
+func isUnsafeContainerHomePath(path string) bool {
+	return strings.HasPrefix(path, "/.cache/") || path == "/.cache"
+}
+
+func expandHome(path string) string {
+	if !strings.HasPrefix(path, "~/") {
+		return path
+	}
+	home := strings.TrimSpace(os.Getenv("HOME"))
+	if home == "" {
+		if h, err := os.UserHomeDir(); err == nil {
+			home = h
+		}
+	}
+	if home == "" {
+		return path
+	}
+	return filepath.Join(home, path[2:])
 }
 
 func splitPorts(s string) []string {

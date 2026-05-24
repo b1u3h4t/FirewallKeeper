@@ -11,7 +11,9 @@ services:
         required: false
     environment:
       TZ: ${TZ:-Asia/Shanghai}
+      HOME: /app
       CONFIG_PATH: /etc/FirewallKeeper/config.yaml
+      STATE_FILE: /data/state.json
       TENCENT_SECRET_ID: ${TENCENT_SECRET_ID:-}
       TENCENT_SECRET_KEY: ${TENCENT_SECRET_KEY:-}
       TENCENT_REGION: ${TENCENT_REGION:-}

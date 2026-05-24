@@ -90,7 +90,7 @@ docker compose version
 | `config.yaml` → `/etc/FirewallKeeper/config.yaml` | 业务配置 |
 | volume `firewallkeeper-data` → `/data` | 持久化上次公网 IP（`state_file: /data/state.json`） |
 
-环境变量 `CONFIG_PATH` 可改配置文件路径；`TENCENT_SECRET_ID` 等可覆盖 yaml 中的密钥字段。
+环境变量 `CONFIG_PATH` 可改配置文件路径；`STATE_FILE` 可覆盖状态文件路径（Docker 默认 `/data/state.json`）；`TENCENT_SECRET_ID` 等可覆盖 yaml 中的密钥字段。
 
 ## 配置
 
