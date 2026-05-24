@@ -1,0 +1,27 @@
+services:
+  firewallkeeper:
+    build:
+      context: .
+      network: host
+    image: firewallkeeper:latest
+    container_name: FirewallKeeper
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      CONFIG_PATH: /etc/FirewallKeeper/config.yaml
+      TENCENT_SECRET_ID: ${TENCENT_SECRET_ID:-}
+      TENCENT_SECRET_KEY: ${TENCENT_SECRET_KEY:-}
+      TENCENT_REGION: ${TENCENT_REGION:-}
+      LIGHTHOUSE_INSTANCE_ID: ${LIGHTHOUSE_INSTANCE_ID:-}
+      SECURITY_GROUP_ID: ${SECURITY_GROUP_ID:-}
+    volumes:
+      - ${CONFIG_FILE:-./config.yaml}:/etc/FirewallKeeper/config.yaml:ro
+      - firewallkeeper-data:/data
+    # 首次启动初始化 volume 权限后，可改回 "1000:1000"
+    user: "1000:1000"
+
+volumes:
+  firewallkeeper-data:

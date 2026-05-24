@@ -1,0 +1,29 @@
+# Docker 部署用配置示例
+# cp config.docker.example.yaml config.yaml 后按需修改
+
+tencent:
+  secret_id: "AKIDxxxxxxxx"
+  secret_key: "xxxxxxxxxxxxxxxx"
+  region: "ap-guangzhou"
+
+backend: lighthouse
+
+lighthouse:
+  instance_id: "lhins-xxxxxxxx"
+
+ports:
+  - "22"
+  - "443"
+
+protocol: TCP
+rule_description: "auto-ddns-whitelist"
+remove_old_ip: true
+
+ip_check:
+  urls:
+    - "https://ddns.oray.com/checkip"
+    - "https://4.ipw.cn"
+  interval_seconds: 300
+
+# 容器内固定路径，由 compose 挂载 volume /data
+state_file: "/data/state.json"

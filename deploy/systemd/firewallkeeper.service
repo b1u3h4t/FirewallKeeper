@@ -1,0 +1,14 @@
+[Unit]
+Description=FirewallKeeper - Tencent Cloud firewall IP whitelist updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/FirewallKeeper
+ExecStart=/opt/FirewallKeeper/FirewallKeeper -c /opt/FirewallKeeper/config.yaml
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+.git
+.gitignore
+*.md
+config.yaml
+.env
+.env.*
+!/.env.example
+FirewallKeeper
+*.exe
+.DS_Store
+docker-compose*.yml
+Makefile

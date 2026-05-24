@@ -1,0 +1,37 @@
+# 复制为 config.yaml 并填写真实配置
+# cp config.example.yaml config.yaml
+
+tencent:
+  secret_id: "AKIDxxx"
+  secret_key: "xxx"
+  region: "ap-beijing"
+
+# lighthouse (轻量应用服务器) 或 cvm (云服务器安全组)
+backend: lighthouse
+
+lighthouse:
+  instance_id: "lhins-xxxx"
+
+cvm:
+  security_group_id: ""
+
+ports:
+  - "22"
+  - "443"
+  - "6000"
+
+protocol: TCP
+
+rule_description: "auto-ddns-whitelist"
+remove_old_ip: false
+
+ip_check:
+  urls:
+    - "https://ddns.oray.com/checkip"
+    - "https://ip.3322.net"
+    - "https://4.ipw.cn"
+  interval_seconds: 300
+
+# 本地部署
+state_file: "~/.cache/FirewallKeeper/state.json"
+# Docker 部署请改用: state_file: "/data/state.json"（见 config.docker.example.yaml）
