@@ -1,11 +1,12 @@
 # FirewallKeeper
 
-当本地公网 IP 发生变化时，自动调用腾讯云 API，将当前 IP 加入服务器防火墙白名单（指定端口）。
+当本地公网 IP 发生变化时，自动将当前 IP 加入云服务器防火墙白名单（指定端口）。
 
-| 后端 | 场景 | API |
-|------|------|-----|
-| `lighthouse` | 轻量应用服务器 | CreateFirewallRules / DeleteFirewallRules |
-| `cvm` | 云服务器安全组 | CreateSecurityGroupPolicies / DeleteSecurityGroupPolicies |
+| 后端 | 云厂商 | 场景 | API |
+|------|--------|------|-----|
+| `lighthouse` | 腾讯云 | 轻量应用服务器 | CreateFirewallRules / DeleteFirewallRules |
+| `cvm` | 腾讯云 | 云服务器安全组 | CreateSecurityGroupPolicies / DeleteSecurityGroupPolicies |
+| `aliyun_swas` | 阿里云国际版 | Simple Application Server（轻量） | CreateFirewallRules / DeleteFirewallRules / ListFirewallRules |
 
 ## 构建与运行
 
@@ -15,117 +16,90 @@
 cd FirewallKeeper
 
 cp config.example.yaml config.yaml
-# 编辑 config.yaml
+# 阿里云国际版轻量: cp config.aliyun.example.yaml config.yaml
 
 make build
-# 或 go build -o FirewallKeeper .
-
-# 单次检测（cron / systemd timer）
-./FirewallKeeper -once -c config.yaml
-
-# 守护进程轮询
-./FirewallKeeper -c config.yaml
+./FirewallKeeper -once -c config.yaml   # 单次
+./FirewallKeeper -c config.yaml         # 守护轮询
 ```
 
-### Docker 一键部署（推荐）
+### 配置示例（阿里云国际版 SWAS）
 
-**asus 等内网机器建议先配置镜像加速**（示例 `deploy/docker-daemon.json.example`）：
+```yaml
+backend: aliyun_swas
 
-```bash
-sudo cp deploy/docker-daemon.json.example /etc/docker/daemon.json
-sudo systemctl restart docker
+aliyun:
+  access_key_id: "LTAIxxxxxxxx"
+  access_key_secret: "xxxxxxxxxxxxxxxx"
+  region: "us-east-1"          # 与实例地域一致
+
+aliyun_swas:
+  instance_id: "your-instance-id"
+
+ports:
+  - "22"
+  - "443"
+
+protocol: TCP
+remove_old_ip: true
 ```
 
+国际地域 Endpoint 自动为 `swas.{region}.aliyuncs.com`（如 `swas.us-east-1.aliyuncs.com`）。
+
+### Docker 一键部署
+
 ```bash
-# 1. 准备配置（Docker 建议 state 写到 /data）
-cp config.docker.example.yaml config.yaml
-# 编辑 config.yaml：密钥、地域、lhins 实例 ID、端口
-
-# 2. 可选：用 .env 注入密钥（覆盖 config 中同名环境变量）
-cp .env.example .env
-
-# 3. 容器内多阶段构建并后台运行（Go: goproxy.cn，需 Docker 镜像加速）
+cp config.docker.example.yaml config.yaml   # 或 config.aliyun.example.yaml
+cp .env.example .env                        # 可选
 make docker-up
-# 等价于: docker compose up -d --build
-
-# 查看日志
-make docker-logs
-
-# 单次检测（适合宿主机 cron）
-make docker-once
-
-# 停止
-make docker-down
+make docker-logs      # 最近 50 行，立即退出
+make docker-logs-f    # 实时跟踪，Ctrl+C 结束
 ```
-
-仅使用 Docker（容器内编译）：
-
-```bash
-docker build --network=host -t firewallkeeper:latest .
-docker run -d --name FirewallKeeper --restart unless-stopped \
-  -v "$(pwd)/config.yaml:/etc/FirewallKeeper/config.yaml:ro" \
-  -v firewallkeeper-data:/data \
-  -e TZ=Asia/Shanghai \
-  firewallkeeper:latest
-```
-
-> 构建说明：`Dockerfile` 多阶段编译，Go 依赖通过 `GOPROXY=https://goproxy.cn` 拉取；`docker compose` 使用 `build.network: host` 避免构建容器 DNS/出网问题；拉取 `golang`/`alpine` 基础镜像需配置 `registry-mirrors`（如 `https://docker.deepflood.xyz`）。
 
 ### 安装 Docker Compose 插件（Ubuntu）
 
-宿主机需 `docker compose`（V2 插件），不要用旧版 `docker-compose` 独立命令：
-
 ```bash
-sudo apt-get update
 sudo apt-get install -y docker-compose-v2
 docker compose version
 ```
 
-可选：卸载 `/usr/local/bin/docker-compose` 以免混淆。
+## 环境变量
 
-**说明**
-
-| 挂载 | 作用 |
+| 变量 | 用途 |
 |------|------|
-| `config.yaml` → `/etc/FirewallKeeper/config.yaml` | 业务配置 |
-| volume `firewallkeeper-data` → `/data` | 持久化上次公网 IP（`state_file: /data/state.json`） |
+| `TENCENT_SECRET_ID` / `TENCENT_SECRET_KEY` / `TENCENT_REGION` | 腾讯云 |
+| `LIGHTHOUSE_INSTANCE_ID` | 腾讯轻量实例 |
+| `SECURITY_GROUP_ID` | 腾讯安全组 |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 阿里云 |
+| `ALIBABA_CLOUD_REGION` | 阿里云地域 |
+| `ALIBABA_CLOUD_SWAS_INSTANCE_ID` | 阿里云轻量实例 |
+| `STATE_FILE` | 状态文件路径 |
+| `CONFIG_PATH` | 配置文件路径 |
 
-环境变量 `CONFIG_PATH` 可改配置文件路径；`STATE_FILE` 可覆盖状态文件路径（Docker 默认 `/data/state.json`）；`TENCENT_SECRET_ID` 等可覆盖 yaml 中的密钥字段。
+## 权限（RAM）
 
-## 配置
+**腾讯云**
 
-见 [config.example.yaml](config.example.yaml)。环境变量可覆盖：
+- 轻量：`lighthouse:CreateFirewallRules`、`lighthouse:DeleteFirewallRules`
+- CVM：`vpc:CreateSecurityGroupPolicies`、`vpc:DeleteSecurityGroupPolicies`
 
-- `TENCENT_SECRET_ID` / `TENCENT_SECRET_KEY` / `TENCENT_REGION`
-- `LIGHTHOUSE_INSTANCE_ID`（lighthouse）
-- `SECURITY_GROUP_ID`（cvm）
+**阿里云国际版 SWAS**
+
+- `swas-open:CreateFirewallRules`
+- `swas-open:DeleteFirewallRules`
+- `swas-open:ListFirewallRules`（删除旧 IP 时匹配规则）
 
 ## systemd 示例
 
 ```ini
-[Unit]
-Description=FirewallKeeper - Tencent Cloud firewall IP whitelist updater
-After=network-online.target
-
 [Service]
 Type=oneshot
-WorkingDirectory=/path/to/FirewallKeeper
-ExecStart=/path/to/FirewallKeeper/FirewallKeeper -once -c config.yaml
-
-[Install]
-WantedBy=multi-user.target
+WorkingDirectory=/opt/FirewallKeeper
+ExecStart=/opt/FirewallKeeper/FirewallKeeper -once -c /opt/FirewallKeeper/config.yaml
 ```
 
 ```ini
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=5min
-
-[Install]
-WantedBy=timers.target
 ```
-
-## CAM 权限
-
-- 轻量：`lighthouse:CreateFirewallRules`、`lighthouse:DeleteFirewallRules`
-- CVM：`vpc:CreateSecurityGroupPolicies`、`vpc:DeleteSecurityGroupPolicies`

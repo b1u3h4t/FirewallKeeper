@@ -17,6 +17,8 @@ func New(cfg *config.Config) (Backend, error) {
 		return NewLighthouse(cfg)
 	case "cvm":
 		return NewCVM(cfg)
+	case "aliyun_swas":
+		return NewAliyunSWAS(cfg)
 	default:
 		return nil, fmt.Errorf("unknown backend: %s", cfg.Backend)
 	}

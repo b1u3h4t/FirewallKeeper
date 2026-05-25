@@ -1,16 +1,27 @@
 # 复制为 config.yaml 并填写真实配置
 # cp config.example.yaml config.yaml
 
+# ---------- 腾讯云（backend: lighthouse / cvm）----------
 tencent:
   secret_id: "AKIDxxx"
   secret_key: "xxx"
   region: "ap-beijing"
 
-# lighthouse (轻量应用服务器) 或 cvm (云服务器安全组)
+# ---------- 阿里云国际版轻量 Simple Application Server（backend: aliyun_swas）----------
+aliyun:
+  access_key_id: "LTAIxxx"
+  access_key_secret: "xxx"
+  region: "us-east-1"   # 国际地域，如 us-east-1、eu-central-1、ap-southeast-1
+  # endpoint: "swas.us-east-1.aliyuncs.com"  # 可选，默认按 region 生成
+
+# backend: lighthouse | cvm | aliyun_swas
 backend: lighthouse
 
 lighthouse:
   instance_id: "lhins-xxxx"
+
+aliyun_swas:
+  instance_id: "xxxx"   # 轻量实例 ID
 
 cvm:
   security_group_id: ""
@@ -32,6 +43,5 @@ ip_check:
     - "https://4.ipw.cn"
   interval_seconds: 300
 
-# 本地部署
 state_file: "~/.cache/FirewallKeeper/state.json"
-# Docker 部署请改用: state_file: "/data/state.json"（见 config.docker.example.yaml）
+# Docker: state_file: "/data/state.json"
