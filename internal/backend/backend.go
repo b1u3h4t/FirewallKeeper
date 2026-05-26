@@ -37,6 +37,8 @@ func newTarget(t config.Target, cfg *config.Config) (Backend, error) {
 		return NewCVM(t, cfg)
 	case config.ProviderAliyunSWAS:
 		return NewAliyunSWAS(t, cfg)
+	case config.ProviderScalewaySG:
+		return NewScalewaySG(t, cfg)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", t.Provider)
 	}

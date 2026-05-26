@@ -11,6 +11,7 @@
 | `tencent_lighthouse` | 腾讯云 | 轻量应用服务器防火墙 |
 | `tencent_cvm` | 腾讯云 | CVM 安全组入站 |
 | `aliyun_swas` | 阿里云国际版 | Simple Application Server 防火墙 |
+| `scaleway_security_group` | Scaleway | Instance 安全组入站规则 |
 
 后续扩展新厂商：在 `targets` 中增加对应 `provider` 配置即可。
 
@@ -41,6 +42,13 @@ targets:
 
   tencent_cvm:
     enabled: false   # 关闭的目标不会调用 API
+
+  scaleway_vps:
+    provider: scaleway_security_group
+    enabled: true
+    zone: "fr-par-1"
+    secret_key: "scw-secret-key"
+    security_group_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ```
 
 同一 `provider` 可配置多个实例（自定义 key 并指定 `provider` 字段）：
@@ -92,6 +100,14 @@ make docker-logs
 
 - 腾讯云：`TENCENT_SECRET_ID`、`TENCENT_SECRET_KEY`、`TENCENT_REGION`、`LIGHTHOUSE_INSTANCE_ID`、`SECURITY_GROUP_ID`
 - 阿里云：`ALIBABA_CLOUD_ACCESS_KEY_ID`、`ALIBABA_CLOUD_ACCESS_KEY_SECRET`、`ALIBABA_CLOUD_REGION`、`ALIBABA_CLOUD_SWAS_INSTANCE_ID`
+- Scaleway：`SCW_SECRET_KEY`（或 `SCW_API_TOKEN`）、`SCW_DEFAULT_ZONE`、`SCW_SECURITY_GROUP_ID`
+
+### Scaleway 说明
+
+1. 在 [Scaleway 控制台](https://console.scaleway.com/) 创建 API Key，使用 **Secret Key** 作为 `secret_key`（也可用 `api_token` 字段）。
+2. 在 Instance → Security groups 中复制安全组 UUID（与 VPS 同可用区）。
+3. `zone` 为可用区 ID，例如 `fr-par-1`、`nl-ams-1`（与 `region` 二选一，优先 `zone`）。
+4. API 权限需能管理 Instance 安全组规则（Create/List/Delete rules）。
 
 ## 兼容旧配置
 

@@ -44,6 +44,14 @@ targets:
     access_key_secret: "xxx"
     instance_id: "your-instance-id"
 
+  # Scaleway Instance 安全组（VPS 防火墙）
+  scaleway_vps:
+    enabled: false
+    provider: scaleway_security_group
+    zone: "fr-par-1"              # 可用区，也可用 region 字段
+    secret_key: "scw-secret-key"  # 控制台 API Keys 的 Secret Key
+    security_group_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
 # 同一类型可配置多个实例（复制一段并改 name 即可）:
 #  aliyun_swas_hk:
 #    provider: aliyun_swas

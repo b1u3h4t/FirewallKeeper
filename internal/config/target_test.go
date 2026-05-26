@@ -52,6 +52,36 @@ func TestLegacyBackendCompat(t *testing.T) {
 	}
 }
 
+func TestParseScalewayTarget(t *testing.T) {
+	raw := `
+ports: ["22"]
+targets:
+  scaleway_vps:
+    provider: scaleway_security_group
+    enabled: true
+    zone: fr-par-1
+    secret_key: scw-key
+    security_group_id: sg-uuid
+`
+	var fc fileConfig
+	if err := yaml.Unmarshal([]byte(raw), &fc); err != nil {
+		t.Fatal(err)
+	}
+	targets, err := buildTargets(fc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("want 1 target, got %d", len(targets))
+	}
+	if targets[0].Provider != ProviderScalewaySG {
+		t.Fatalf("provider %s", targets[0].Provider)
+	}
+	if targets[0].Zone != "fr-par-1" {
+		t.Fatalf("zone %s", targets[0].Zone)
+	}
+}
+
 func TestDisabledTargetSkipped(t *testing.T) {
 	raw := fileConfig{
 		Targets: map[string]targetYAML{

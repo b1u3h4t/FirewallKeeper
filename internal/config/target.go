@@ -8,7 +8,8 @@ import (
 const (
 	ProviderTencentLighthouse = "tencent_lighthouse"
 	ProviderTencentCVM        = "tencent_cvm"
-	ProviderAliyunSWAS        = "aliyun_swas"
+	ProviderAliyunSWAS         = "aliyun_swas"
+	ProviderScalewaySG         = "scaleway_security_group"
 )
 
 // Target 表示一个待更新的防火墙目标（一台实例或一个安全组）。
@@ -28,6 +29,9 @@ type Target struct {
 	AccessKeyID     string
 	AccessKeySecret string
 	Endpoint        string
+
+	// Scaleway（可用区，如 fr-par-1）
+	Zone string
 }
 
 type targetYAML struct {
@@ -41,6 +45,8 @@ type targetYAML struct {
 	AccessKeyID     string `yaml:"access_key_id"`
 	AccessKeySecret string `yaml:"access_key_secret"`
 	Endpoint        string `yaml:"endpoint"`
+	Zone            string `yaml:"zone"`
+	APIToken        string `yaml:"api_token"`
 }
 
 func buildTargets(raw fileConfig) ([]Target, error) {
@@ -81,6 +87,10 @@ func parseTargetsMap(m map[string]targetYAML) ([]Target, error) {
 			AccessKeyID:     t.AccessKeyID,
 			AccessKeySecret: t.AccessKeySecret,
 			Endpoint:        t.Endpoint,
+			Zone:            firstNonEmpty(t.Zone, t.Region),
+		}
+		if target.SecretKey == "" {
+			target.SecretKey = t.APIToken
 		}
 		applyTargetEnvDefaults(&target)
 		if err := validateTarget(target); err != nil {
@@ -120,6 +130,17 @@ func applyTargetEnvDefaults(t *Target) {
 		if t.Endpoint == "" {
 			t.Endpoint = envOr("", "ALIBABA_CLOUD_ENDPOINT")
 		}
+	case ProviderScalewaySG:
+		t.SecretKey = envOr(t.SecretKey, "SCW_SECRET_KEY")
+		if t.SecretKey == "" {
+			t.SecretKey = envOr("", "SCW_API_TOKEN")
+		}
+		if t.Zone == "" {
+			t.Zone = envOr(t.Region, "SCW_DEFAULT_ZONE")
+		}
+		if t.SecurityGroupID == "" {
+			t.SecurityGroupID = envOr("", "SCW_SECURITY_GROUP_ID")
+		}
 	}
 }
 
@@ -146,9 +167,19 @@ func validateTarget(t Target) error {
 		if t.InstanceID == "" {
 			return fmt.Errorf("需要 instance_id")
 		}
+	case ProviderScalewaySG:
+		if t.SecretKey == "" {
+			return fmt.Errorf("需要 secret_key 或 api_token（Scaleway API Secret Key）")
+		}
+		if t.Zone == "" {
+			return fmt.Errorf("需要 zone（可用区，如 fr-par-1）或 region")
+		}
+		if t.SecurityGroupID == "" {
+			return fmt.Errorf("需要 security_group_id")
+		}
 	default:
-		return fmt.Errorf("不支持的 provider: %s（已知: %s, %s, %s）",
-			t.Provider, ProviderTencentLighthouse, ProviderTencentCVM, ProviderAliyunSWAS)
+		return fmt.Errorf("不支持的 provider: %s（已知: %s, %s, %s, %s）",
+			t.Provider, ProviderTencentLighthouse, ProviderTencentCVM, ProviderAliyunSWAS, ProviderScalewaySG)
 	}
 	return nil
 }
@@ -170,6 +201,8 @@ func legacyTarget(raw fileConfig) *Target {
 		backend = ProviderTencentCVM
 	case "aliyun_swas":
 		backend = ProviderAliyunSWAS
+	case "scaleway_security_group", "scaleway_sg", "scaleway":
+		backend = ProviderScalewaySG
 	}
 
 	t := Target{
@@ -202,4 +235,13 @@ func legacyTarget(raw fileConfig) *Target {
 
 func stringsTrimLower(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
