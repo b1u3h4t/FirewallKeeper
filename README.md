@@ -14,6 +14,8 @@
 | `scaleway_security_group` | Scaleway | Instance 安全组入站规则 |
 | `hetzner_cloud_firewall` | Hetzner Cloud | 云服务器 Firewall 入站规则（[api.hetzner.cloud](https://docs.hetzner.cloud/)） |
 | `hetzner_robot_firewall` | Hetzner Robot | 独立服务器无状态防火墙（[Robot Web Service](https://docs.hetzner.com/robot/)） |
+| `aws_lightsail` | AWS | Lightsail 实例防火墙端口（[Lightsail API](https://docs.aws.amazon.com/lightsail/)） |
+| `volcengine_security_group` | 火山引擎 | ECS/VPC 安全组入站（[私有网络 API](https://www.volcengine.com/docs/6401/70748)） |
 
 后续扩展新厂商：在 `targets` 中增加对应 `provider` 配置即可。
 
@@ -64,6 +66,22 @@ targets:
     robot_user: "your-robot-user"
     robot_password: "your-robot-password"
     server_number: "321"
+
+  aws_lightsail:
+    provider: aws_lightsail
+    enabled: true
+    region: "us-east-1"
+    access_key_id: "AKIAxxx"
+    access_key_secret: "xxx"
+    instance_name: "MyLightsailInstance"
+
+  volcengine_sg:
+    provider: volcengine_security_group
+    enabled: true
+    region: "cn-beijing"
+    access_key_id: "AKLTxxx"
+    access_key_secret: "xxx"
+    security_group_id: "sg-xxxxxxxx"
 ```
 
 同一 `provider` 可配置多个实例（自定义 key 并指定 `provider` 字段）：
@@ -118,6 +136,21 @@ make docker-logs
 - Scaleway：`SCW_SECRET_KEY`（或 `SCW_API_TOKEN`）、`SCW_DEFAULT_ZONE`、`SCW_SECURITY_GROUP_ID`
 - Hetzner Cloud：`HCLOUD_TOKEN`、`HCLOUD_FIREWALL_ID`
 - Hetzner Robot：`HETZNER_ROBOT_USER`、`HETZNER_ROBOT_PASSWORD`、`HETZNER_ROBOT_SERVER_NUMBER`
+- AWS Lightsail：`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_REGION`、`AWS_LIGHTSAIL_INSTANCE_NAME`
+- 火山引擎：`VOLCENGINE_ACCESS_KEY_ID`、`VOLCENGINE_SECRET_ACCESS_KEY`、`VOLCENGINE_REGION`、`VOLCENGINE_SECURITY_GROUP_ID`
+
+### AWS Lightsail 说明
+
+1. IAM 用户需具备 Lightsail 网络相关权限（如 `lightsail:OpenInstancePublicPorts`、`CloseInstancePublicPorts`、`GetInstancePortStates`）。
+2. `instance_name` 为 Lightsail 控制台中的**实例名称**（非 ARN/ID）。
+3. 使用 `OpenInstancePublicPorts` 追加规则，不会关闭已有其他 IP 的端口规则；删除旧 IP 时调用 `CloseInstancePublicPorts`。
+
+### 火山引擎说明
+
+1. 适用于绑定到 ECS 实例的 **VPC 安全组**（与腾讯云 CVM 安全组类似）。
+2. 在 [火山引擎控制台](https://console.volcengine.com/) 创建 Access Key，并复制安全组 ID。
+3. API：`AuthorizeSecurityGroupIngress` / `RevokeSecurityGroupIngress`（服务 `vpc`，版本 `2020-04-01`）。
+4. 默认 endpoint：`https://open.volcengineapi.com`，可通过 `endpoint` 覆盖。
 
 ### Hetzner 说明
 

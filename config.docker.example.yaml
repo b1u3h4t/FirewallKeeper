@@ -29,6 +29,22 @@ targets:
     access_key_secret: "xxxxxxxxxxxxxxxx"
     instance_id: "your-instance-id"
 
+  aws_lightsail:
+    enabled: false
+    provider: aws_lightsail
+    region: "us-east-1"
+    access_key_id: "AKIAxxxxxxxx"
+    access_key_secret: "xxxxxxxxxxxxxxxx"
+    instance_name: "MyLightsailInstance"
+
+  volcengine_sg:
+    enabled: false
+    provider: volcengine_security_group
+    region: "cn-beijing"
+    access_key_id: "AKLTxxxxxxxx"
+    access_key_secret: "xxxxxxxxxxxxxxxx"
+    security_group_id: "sg-xxxxxxxxxxxxxxxx"
+
   hetzner_cloud:
     enabled: false
     provider: hetzner_cloud_firewall

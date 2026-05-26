@@ -43,6 +43,10 @@ func newTarget(t config.Target, cfg *config.Config) (Backend, error) {
 		return NewHetznerCloud(t, cfg)
 	case config.ProviderHetznerRobotFirewall:
 		return NewHetznerRobot(t, cfg)
+	case config.ProviderAWSLightsail:
+		return NewAWSLightsail(t, cfg)
+	case config.ProviderVolcengineSG:
+		return NewVolcengineSG(t, cfg)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", t.Provider)
 	}

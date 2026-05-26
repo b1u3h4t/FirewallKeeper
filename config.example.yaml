@@ -44,6 +44,24 @@ targets:
     access_key_secret: "xxx"
     instance_id: "your-instance-id"
 
+  # AWS Lightsail 实例防火墙
+  aws_lightsail:
+    enabled: false
+    provider: aws_lightsail
+    region: "us-east-1"
+    access_key_id: "AKIAxxxxxxxx"
+    access_key_secret: "xxxxxxxxxxxxxxxx"
+    instance_name: "MyLightsailInstance"   # 控制台中的实例名称
+
+  # 火山引擎 ECS 安全组
+  volcengine_sg:
+    enabled: false
+    provider: volcengine_security_group
+    region: "cn-beijing"
+    access_key_id: "AKLTxxxxxxxx"
+    access_key_secret: "xxxxxxxxxxxxxxxx"
+    security_group_id: "sg-xxxxxxxxxxxxxxxx"
+
   # Hetzner Cloud 防火墙（云 VPS，需已创建并绑定到服务器的 Firewall）
   hetzner_cloud:
     enabled: false

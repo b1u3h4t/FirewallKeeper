@@ -111,6 +111,38 @@ targets:
 	}
 }
 
+func TestParseAWSVolcTargets(t *testing.T) {
+	raw := `
+ports: ["22"]
+targets:
+  aws_ls:
+    provider: aws_lightsail
+    enabled: true
+    region: us-east-1
+    access_key_id: AKIA
+    access_key_secret: secret
+    instance_name: MyInstance
+  volc_sg:
+    provider: volcengine_security_group
+    enabled: true
+    region: cn-beijing
+    access_key_id: ak
+    access_key_secret: sk
+    security_group_id: sg-xxx
+`
+	var fc fileConfig
+	if err := yaml.Unmarshal([]byte(raw), &fc); err != nil {
+		t.Fatal(err)
+	}
+	targets, err := buildTargets(fc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 2 {
+		t.Fatalf("want 2, got %d", len(targets))
+	}
+}
+
 func TestDisabledTargetSkipped(t *testing.T) {
 	raw := fileConfig{
 		Targets: map[string]targetYAML{

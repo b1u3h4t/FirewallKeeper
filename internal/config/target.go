@@ -12,6 +12,8 @@ const (
 	ProviderScalewaySG          = "scaleway_security_group"
 	ProviderHetznerCloudFirewall = "hetzner_cloud_firewall"
 	ProviderHetznerRobotFirewall = "hetzner_robot_firewall"
+	ProviderAWSLightsail         = "aws_lightsail"
+	ProviderVolcengineSG         = "volcengine_security_group"
 )
 
 // Target 表示一个待更新的防火墙目标（一台实例或一个安全组）。
@@ -40,6 +42,9 @@ type Target struct {
 	RobotUser    string
 	RobotPassword string
 	ServerNumber string
+
+	// AWS Lightsail 使用实例名称（非 ID）
+	InstanceName string
 }
 
 type targetYAML struct {
@@ -59,6 +64,7 @@ type targetYAML struct {
 	RobotUser       string `yaml:"robot_user"`
 	RobotPassword   string `yaml:"robot_password"`
 	ServerNumber    string `yaml:"server_number"`
+	InstanceName    string `yaml:"instance_name"`
 }
 
 func buildTargets(raw fileConfig) ([]Target, error) {
@@ -104,6 +110,7 @@ func parseTargetsMap(m map[string]targetYAML) ([]Target, error) {
 			RobotUser:       t.RobotUser,
 			RobotPassword:   t.RobotPassword,
 			ServerNumber:    firstNonEmpty(t.ServerNumber, t.InstanceID),
+			InstanceName:    firstNonEmpty(t.InstanceName, t.InstanceID),
 		}
 		if target.SecretKey == "" {
 			target.SecretKey = t.APIToken
@@ -180,6 +187,36 @@ func applyTargetEnvDefaults(t *Target) {
 		if t.Endpoint == "" {
 			t.Endpoint = envOr("", "HETZNER_ROBOT_ENDPOINT")
 		}
+	case ProviderAWSLightsail:
+		t.AccessKeyID = envOr(t.AccessKeyID, "AWS_ACCESS_KEY_ID")
+		if t.AccessKeyID == "" {
+			t.AccessKeyID = envOr("", "AWS_ACCESS_KEY")
+		}
+		t.AccessKeySecret = envOr(t.AccessKeySecret, "AWS_SECRET_ACCESS_KEY")
+		if t.Region == "" {
+			t.Region = envOr("", "AWS_REGION")
+		}
+		if t.InstanceName == "" {
+			t.InstanceName = envOr(t.InstanceID, "AWS_LIGHTSAIL_INSTANCE_NAME")
+		}
+	case ProviderVolcengineSG:
+		t.AccessKeyID = envOr(t.AccessKeyID, "VOLCENGINE_ACCESS_KEY_ID")
+		if t.AccessKeyID == "" {
+			t.AccessKeyID = envOr("", "VOLC_ACCESSKEY")
+		}
+		t.AccessKeySecret = envOr(t.AccessKeySecret, "VOLCENGINE_SECRET_ACCESS_KEY")
+		if t.AccessKeySecret == "" {
+			t.AccessKeySecret = envOr("", "VOLC_SECRETKEY")
+		}
+		if t.Region == "" {
+			t.Region = envOr("", "VOLCENGINE_REGION")
+		}
+		if t.SecurityGroupID == "" {
+			t.SecurityGroupID = envOr("", "VOLCENGINE_SECURITY_GROUP_ID")
+		}
+		if t.Endpoint == "" {
+			t.Endpoint = envOr("", "VOLCENGINE_ENDPOINT")
+		}
 	}
 }
 
@@ -230,10 +267,28 @@ func validateTarget(t Target) error {
 		if t.ServerNumber == "" {
 			return fmt.Errorf("需要 server_number 或 instance_id")
 		}
+	case ProviderAWSLightsail:
+		if t.AccessKeyID == "" || t.AccessKeySecret == "" {
+			return fmt.Errorf("需要 access_key_id、access_key_secret（或 AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY）")
+		}
+		if t.Region == "" {
+			return fmt.Errorf("需要 region（如 us-east-1）")
+		}
+		if t.InstanceName == "" {
+			return fmt.Errorf("需要 instance_name（Lightsail 控制台中的实例名称）")
+		}
+	case ProviderVolcengineSG:
+		if t.AccessKeyID == "" || t.AccessKeySecret == "" || t.Region == "" {
+			return fmt.Errorf("需要 access_key_id、access_key_secret、region")
+		}
+		if t.SecurityGroupID == "" {
+			return fmt.Errorf("需要 security_group_id")
+		}
 	default:
-		return fmt.Errorf("不支持的 provider: %s（已知: %s, %s, %s, %s, %s, %s）",
+		return fmt.Errorf("不支持的 provider: %s（已知: %s, %s, %s, %s, %s, %s, %s, %s）",
 			t.Provider, ProviderTencentLighthouse, ProviderTencentCVM, ProviderAliyunSWAS,
-			ProviderScalewaySG, ProviderHetznerCloudFirewall, ProviderHetznerRobotFirewall)
+			ProviderScalewaySG, ProviderHetznerCloudFirewall, ProviderHetznerRobotFirewall,
+			ProviderAWSLightsail, ProviderVolcengineSG)
 	}
 	return nil
 }
@@ -261,6 +316,10 @@ func legacyTarget(raw fileConfig) *Target {
 		backend = ProviderHetznerCloudFirewall
 	case "hetzner_robot_firewall", "hetzner_robot", "hetzner_dedicated":
 		backend = ProviderHetznerRobotFirewall
+	case "aws_lightsail", "lightsail":
+		backend = ProviderAWSLightsail
+	case "volcengine_security_group", "volcengine_sg", "volcengine":
+		backend = ProviderVolcengineSG
 	}
 
 	t := Target{
