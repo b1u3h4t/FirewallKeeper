@@ -29,6 +29,19 @@ targets:
     access_key_secret: "xxxxxxxxxxxxxxxx"
     instance_id: "your-instance-id"
 
+  hetzner_cloud:
+    enabled: false
+    provider: hetzner_cloud_firewall
+    api_token: "your-hcloud-token"
+    firewall_id: "12345"
+
+  hetzner_dedicated:
+    enabled: false
+    provider: hetzner_robot_firewall
+    robot_user: "your-robot-user"
+    robot_password: "your-robot-password"
+    server_number: "321"
+
   scaleway_vps:
     enabled: false
     provider: scaleway_security_group

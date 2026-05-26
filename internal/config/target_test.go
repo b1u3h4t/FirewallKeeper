@@ -82,6 +82,35 @@ targets:
 	}
 }
 
+func TestParseHetznerTargets(t *testing.T) {
+	raw := `
+ports: ["22"]
+targets:
+  hcloud_fw:
+    provider: hetzner_cloud_firewall
+    enabled: true
+    api_token: tok
+    firewall_id: "12345"
+  hetzner_ded:
+    provider: hetzner_robot_firewall
+    enabled: true
+    robot_user: user
+    robot_password: pass
+    server_number: "321"
+`
+	var fc fileConfig
+	if err := yaml.Unmarshal([]byte(raw), &fc); err != nil {
+		t.Fatal(err)
+	}
+	targets, err := buildTargets(fc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 2 {
+		t.Fatalf("want 2 targets, got %d", len(targets))
+	}
+}
+
 func TestDisabledTargetSkipped(t *testing.T) {
 	raw := fileConfig{
 		Targets: map[string]targetYAML{

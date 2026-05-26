@@ -44,6 +44,21 @@ targets:
     access_key_secret: "xxx"
     instance_id: "your-instance-id"
 
+  # Hetzner Cloud 防火墙（云 VPS，需已创建并绑定到服务器的 Firewall）
+  hetzner_cloud:
+    enabled: false
+    provider: hetzner_cloud_firewall
+    api_token: "your-hcloud-token"
+    firewall_id: "12345"
+
+  # Hetzner Robot 防火墙（独立服务器 / Dedicated）
+  hetzner_dedicated:
+    enabled: false
+    provider: hetzner_robot_firewall
+    robot_user: "your-robot-user"
+    robot_password: "your-robot-password"
+    server_number: "321"   # Robot 中的 Server ID
+
   # Scaleway Instance 安全组（VPS 防火墙）
   scaleway_vps:
     enabled: false

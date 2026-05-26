@@ -9,7 +9,9 @@ const (
 	ProviderTencentLighthouse = "tencent_lighthouse"
 	ProviderTencentCVM        = "tencent_cvm"
 	ProviderAliyunSWAS         = "aliyun_swas"
-	ProviderScalewaySG         = "scaleway_security_group"
+	ProviderScalewaySG          = "scaleway_security_group"
+	ProviderHetznerCloudFirewall = "hetzner_cloud_firewall"
+	ProviderHetznerRobotFirewall = "hetzner_robot_firewall"
 )
 
 // Target 表示一个待更新的防火墙目标（一台实例或一个安全组）。
@@ -32,6 +34,12 @@ type Target struct {
 
 	// Scaleway（可用区，如 fr-par-1）
 	Zone string
+
+	// Hetzner Cloud 防火墙 ID；Robot 独立服务器编号
+	FirewallID   string
+	RobotUser    string
+	RobotPassword string
+	ServerNumber string
 }
 
 type targetYAML struct {
@@ -47,6 +55,10 @@ type targetYAML struct {
 	Endpoint        string `yaml:"endpoint"`
 	Zone            string `yaml:"zone"`
 	APIToken        string `yaml:"api_token"`
+	FirewallID      string `yaml:"firewall_id"`
+	RobotUser       string `yaml:"robot_user"`
+	RobotPassword   string `yaml:"robot_password"`
+	ServerNumber    string `yaml:"server_number"`
 }
 
 func buildTargets(raw fileConfig) ([]Target, error) {
@@ -88,6 +100,10 @@ func parseTargetsMap(m map[string]targetYAML) ([]Target, error) {
 			AccessKeySecret: t.AccessKeySecret,
 			Endpoint:        t.Endpoint,
 			Zone:            firstNonEmpty(t.Zone, t.Region),
+			FirewallID:      firstNonEmpty(t.FirewallID, t.SecurityGroupID),
+			RobotUser:       t.RobotUser,
+			RobotPassword:   t.RobotPassword,
+			ServerNumber:    firstNonEmpty(t.ServerNumber, t.InstanceID),
 		}
 		if target.SecretKey == "" {
 			target.SecretKey = t.APIToken
@@ -141,6 +157,29 @@ func applyTargetEnvDefaults(t *Target) {
 		if t.SecurityGroupID == "" {
 			t.SecurityGroupID = envOr("", "SCW_SECURITY_GROUP_ID")
 		}
+	case ProviderHetznerCloudFirewall:
+		t.SecretKey = envOr(t.SecretKey, "HCLOUD_TOKEN")
+		if t.FirewallID == "" {
+			t.FirewallID = envOr(t.SecurityGroupID, "HCLOUD_FIREWALL_ID")
+		}
+		if t.Endpoint == "" {
+			t.Endpoint = envOr("", "HCLOUD_ENDPOINT")
+		}
+	case ProviderHetznerRobotFirewall:
+		t.RobotUser = envOr(t.RobotUser, "HETZNER_ROBOT_USER")
+		if t.RobotUser == "" {
+			t.RobotUser = envOr(t.AccessKeyID, "ROBOT_USER")
+		}
+		t.RobotPassword = envOr(t.RobotPassword, "HETZNER_ROBOT_PASSWORD")
+		if t.RobotPassword == "" {
+			t.RobotPassword = envOr(t.AccessKeySecret, "ROBOT_PASSWORD")
+		}
+		if t.ServerNumber == "" {
+			t.ServerNumber = envOr(t.InstanceID, "HETZNER_ROBOT_SERVER_NUMBER")
+		}
+		if t.Endpoint == "" {
+			t.Endpoint = envOr("", "HETZNER_ROBOT_ENDPOINT")
+		}
 	}
 }
 
@@ -177,9 +216,24 @@ func validateTarget(t Target) error {
 		if t.SecurityGroupID == "" {
 			return fmt.Errorf("需要 security_group_id")
 		}
+	case ProviderHetznerCloudFirewall:
+		if t.SecretKey == "" {
+			return fmt.Errorf("需要 api_token 或 secret_key（HCLOUD_TOKEN）")
+		}
+		if t.FirewallID == "" {
+			return fmt.Errorf("需要 firewall_id（HCLOUD_FIREWALL_ID）")
+		}
+	case ProviderHetznerRobotFirewall:
+		if t.RobotUser == "" || t.RobotPassword == "" {
+			return fmt.Errorf("需要 robot_user、robot_password（或 access_key_id/access_key_secret）")
+		}
+		if t.ServerNumber == "" {
+			return fmt.Errorf("需要 server_number 或 instance_id")
+		}
 	default:
-		return fmt.Errorf("不支持的 provider: %s（已知: %s, %s, %s, %s）",
-			t.Provider, ProviderTencentLighthouse, ProviderTencentCVM, ProviderAliyunSWAS, ProviderScalewaySG)
+		return fmt.Errorf("不支持的 provider: %s（已知: %s, %s, %s, %s, %s, %s）",
+			t.Provider, ProviderTencentLighthouse, ProviderTencentCVM, ProviderAliyunSWAS,
+			ProviderScalewaySG, ProviderHetznerCloudFirewall, ProviderHetznerRobotFirewall)
 	}
 	return nil
 }
@@ -203,6 +257,10 @@ func legacyTarget(raw fileConfig) *Target {
 		backend = ProviderAliyunSWAS
 	case "scaleway_security_group", "scaleway_sg", "scaleway":
 		backend = ProviderScalewaySG
+	case "hetzner_cloud_firewall", "hetzner_cloud", "hcloud":
+		backend = ProviderHetznerCloudFirewall
+	case "hetzner_robot_firewall", "hetzner_robot", "hetzner_dedicated":
+		backend = ProviderHetznerRobotFirewall
 	}
 
 	t := Target{

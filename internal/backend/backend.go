@@ -39,6 +39,10 @@ func newTarget(t config.Target, cfg *config.Config) (Backend, error) {
 		return NewAliyunSWAS(t, cfg)
 	case config.ProviderScalewaySG:
 		return NewScalewaySG(t, cfg)
+	case config.ProviderHetznerCloudFirewall:
+		return NewHetznerCloud(t, cfg)
+	case config.ProviderHetznerRobotFirewall:
+		return NewHetznerRobot(t, cfg)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", t.Provider)
 	}

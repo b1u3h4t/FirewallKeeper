@@ -12,6 +12,8 @@
 | `tencent_cvm` | 腾讯云 | CVM 安全组入站 |
 | `aliyun_swas` | 阿里云国际版 | Simple Application Server 防火墙 |
 | `scaleway_security_group` | Scaleway | Instance 安全组入站规则 |
+| `hetzner_cloud_firewall` | Hetzner Cloud | 云服务器 Firewall 入站规则（[api.hetzner.cloud](https://docs.hetzner.cloud/)） |
+| `hetzner_robot_firewall` | Hetzner Robot | 独立服务器无状态防火墙（[Robot Web Service](https://docs.hetzner.com/robot/)） |
 
 后续扩展新厂商：在 `targets` 中增加对应 `provider` 配置即可。
 
@@ -49,6 +51,19 @@ targets:
     zone: "fr-par-1"
     secret_key: "scw-secret-key"
     security_group_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+  hetzner_cloud:
+    provider: hetzner_cloud_firewall
+    enabled: true
+    api_token: "your-hcloud-token"
+    firewall_id: "12345"
+
+  hetzner_dedicated:
+    provider: hetzner_robot_firewall
+    enabled: true
+    robot_user: "your-robot-user"
+    robot_password: "your-robot-password"
+    server_number: "321"
 ```
 
 同一 `provider` 可配置多个实例（自定义 key 并指定 `provider` 字段）：
@@ -101,6 +116,23 @@ make docker-logs
 - 腾讯云：`TENCENT_SECRET_ID`、`TENCENT_SECRET_KEY`、`TENCENT_REGION`、`LIGHTHOUSE_INSTANCE_ID`、`SECURITY_GROUP_ID`
 - 阿里云：`ALIBABA_CLOUD_ACCESS_KEY_ID`、`ALIBABA_CLOUD_ACCESS_KEY_SECRET`、`ALIBABA_CLOUD_REGION`、`ALIBABA_CLOUD_SWAS_INSTANCE_ID`
 - Scaleway：`SCW_SECRET_KEY`（或 `SCW_API_TOKEN`）、`SCW_DEFAULT_ZONE`、`SCW_SECURITY_GROUP_ID`
+- Hetzner Cloud：`HCLOUD_TOKEN`、`HCLOUD_FIREWALL_ID`
+- Hetzner Robot：`HETZNER_ROBOT_USER`、`HETZNER_ROBOT_PASSWORD`、`HETZNER_ROBOT_SERVER_NUMBER`
+
+### Hetzner 说明
+
+**Cloud VPS**（`hetzner_cloud_firewall`）：
+
+1. 在 [Hetzner Cloud Console](https://console.hetzner.cloud/) 创建 API Token（读写）。
+2. 创建 Firewall 并绑定到 Cloud Server（控制台 → Firewalls）。
+3. 配置 `firewall_id` 为防火墙数字 ID；工具通过 `set_rules` 在保留既有规则的前提下追加/删除白名单入站规则。
+
+**Dedicated Server**（`hetzner_robot_firewall`）：
+
+1. 使用 [Robot](https://robot.hetzner.com/) 的 Webservice 用户名与密码。
+2. `server_number` 为 Robot 中的 Server ID（非 IP）。
+3. 入站方向最多 **10 条** 规则；更新会替换整组 input/output 规则，工具会先 GET 再合并后 POST。
+4. API 基址默认 `https://robot-ws.your-server.de`，可通过 `endpoint` 覆盖。
 
 ### Scaleway 说明
 
