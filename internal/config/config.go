@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// 兼容旧版顶层字段（backend + tencent/lighthouse 等）
 type Tencent struct {
 	SecretID  string `yaml:"secret_id"`
 	SecretKey string `yaml:"secret_key"`
@@ -19,7 +20,7 @@ type Aliyun struct {
 	AccessKeyID     string `yaml:"access_key_id"`
 	AccessKeySecret string `yaml:"access_key_secret"`
 	Region          string `yaml:"region"`
-	Endpoint        string `yaml:"endpoint"` // 可选，默认 swas.{region}.aliyuncs.com
+	Endpoint        string `yaml:"endpoint"`
 }
 
 type Lighthouse struct {
@@ -40,21 +41,21 @@ type IPCheck struct {
 }
 
 type fileConfig struct {
-	Tencent         Tencent    `yaml:"tencent"`
-	Aliyun          Aliyun     `yaml:"aliyun"`
-	Backend         string     `yaml:"backend"`
-	Lighthouse      Lighthouse `yaml:"lighthouse"`
-	AliyunSWAS      AliyunSWAS `yaml:"aliyun_swas"`
-	CVM             CVM        `yaml:"cvm"`
-	Ports           yamlPorts  `yaml:"ports"`
-	Protocol        string     `yaml:"protocol"`
-	RuleDescription string     `yaml:"rule_description"`
-	RemoveOldIP     *bool      `yaml:"remove_old_ip"`
-	IPCheck         IPCheck    `yaml:"ip_check"`
-	StateFile       string     `yaml:"state_file"`
+	Targets         map[string]targetYAML `yaml:"targets"`
+	Backend         string                `yaml:"backend"` // 已废弃，兼容旧配置
+	Tencent         Tencent               `yaml:"tencent"`
+	Aliyun          Aliyun                `yaml:"aliyun"`
+	Lighthouse      Lighthouse            `yaml:"lighthouse"`
+	AliyunSWAS      AliyunSWAS            `yaml:"aliyun_swas"`
+	CVM             CVM                   `yaml:"cvm"`
+	Ports           yamlPorts             `yaml:"ports"`
+	Protocol        string                `yaml:"protocol"`
+	RuleDescription string                `yaml:"rule_description"`
+	RemoveOldIP     *bool                 `yaml:"remove_old_ip"`
+	IPCheck         IPCheck               `yaml:"ip_check"`
+	StateFile       string                `yaml:"state_file"`
 }
 
-// yamlPorts accepts either a YAML list or a comma-separated string.
 type yamlPorts []string
 
 func (p *yamlPorts) UnmarshalYAML(value *yaml.Node) error {
@@ -77,20 +78,16 @@ func (p *yamlPorts) UnmarshalYAML(value *yaml.Node) error {
 	}
 }
 
+// Config 应用配置：Shared 为全局项，Targets 为可并行的多个厂商目标。
 type Config struct {
-	Tencent              Tencent
-	Aliyun               Aliyun
-	Backend              string
-	LighthouseInstanceID string
-	AliyunSWASInstanceID string
-	SecurityGroupID      string
-	Ports                []string
-	Protocol             string
-	RuleDescription      string
-	RemoveOldIP          bool
-	IPCheckURLs          []string
-	IntervalSeconds      int
-	StateFile            string
+	Ports           []string
+	Protocol        string
+	RuleDescription string
+	RemoveOldIP     bool
+	IPCheckURLs     []string
+	IntervalSeconds int
+	StateFile       string
+	Targets         []Target
 }
 
 func Load(path string) (*Config, error) {
@@ -104,49 +101,9 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
-	backend := strings.ToLower(strings.TrimSpace(raw.Backend))
-	if backend == "" {
-		backend = "lighthouse"
-	}
-
-	tencent := Tencent{
-		SecretID:  envOr(raw.Tencent.SecretID, "TENCENT_SECRET_ID"),
-		SecretKey: envOr(raw.Tencent.SecretKey, "TENCENT_SECRET_KEY"),
-		Region:    envOr(raw.Tencent.Region, "TENCENT_REGION"),
-	}
-
-	aliyun := Aliyun{
-		AccessKeyID:     envOr(raw.Aliyun.AccessKeyID, "ALIBABA_CLOUD_ACCESS_KEY_ID"),
-		AccessKeySecret: envOr(raw.Aliyun.AccessKeySecret, "ALIBABA_CLOUD_ACCESS_KEY_SECRET"),
-		Region:          envOr(raw.Aliyun.Region, "ALIBABA_CLOUD_REGION"),
-		Endpoint:        envOr(raw.Aliyun.Endpoint, "ALIBABA_CLOUD_ENDPOINT"),
-	}
-
-	instanceID := envOr(raw.Lighthouse.InstanceID, "LIGHTHOUSE_INSTANCE_ID")
-	aliyunInstanceID := envOr(raw.AliyunSWAS.InstanceID, "ALIBABA_CLOUD_SWAS_INSTANCE_ID")
-	sgID := envOr(raw.CVM.SecurityGroupID, "SECURITY_GROUP_ID")
-
-	switch backend {
-	case "lighthouse", "cvm":
-		if tencent.SecretID == "" || tencent.SecretKey == "" || tencent.Region == "" {
-			return nil, fmt.Errorf("腾讯云后端需在 config.yaml 或环境变量中配置 tencent.secret_id / secret_key / region")
-		}
-	case "aliyun_swas":
-		if aliyun.AccessKeyID == "" || aliyun.AccessKeySecret == "" || aliyun.Region == "" {
-			return nil, fmt.Errorf("阿里云 SWAS 后端需在 config.yaml 或环境变量中配置 aliyun.access_key_id / access_key_secret / region")
-		}
-	default:
-		return nil, fmt.Errorf("backend 仅支持 lighthouse、cvm、aliyun_swas")
-	}
-
-	if backend == "lighthouse" && instanceID == "" {
-		return nil, fmt.Errorf("lighthouse 模式需要配置 lighthouse.instance_id")
-	}
-	if backend == "cvm" && sgID == "" {
-		return nil, fmt.Errorf("cvm 模式需要配置 cvm.security_group_id")
-	}
-	if backend == "aliyun_swas" && aliyunInstanceID == "" {
-		return nil, fmt.Errorf("aliyun_swas 模式需要配置 aliyun_swas.instance_id")
+	targets, err := buildTargets(raw)
+	if err != nil {
+		return nil, err
 	}
 
 	ports := []string(raw.Ports)
@@ -189,19 +146,14 @@ func Load(path string) (*Config, error) {
 	}
 
 	return &Config{
-		Tencent:              tencent,
-		Aliyun:               aliyun,
-		Backend:              backend,
-		LighthouseInstanceID: instanceID,
-		AliyunSWASInstanceID: aliyunInstanceID,
-		SecurityGroupID:      sgID,
-		Ports:                ports,
-		Protocol:             protocol,
-		RuleDescription:      desc,
-		RemoveOldIP:          removeOld,
-		IPCheckURLs:          urls,
-		IntervalSeconds:      interval,
-		StateFile:            stateFile,
+		Ports:           ports,
+		Protocol:        protocol,
+		RuleDescription: desc,
+		RemoveOldIP:     removeOld,
+		IPCheckURLs:     urls,
+		IntervalSeconds: interval,
+		StateFile:       stateFile,
+		Targets:         targets,
 	}, nil
 }
 

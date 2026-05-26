@@ -11,19 +11,23 @@ import (
 )
 
 type CVM struct {
+	name   string
 	client *tencentapi.VPCClient
 }
 
-func NewCVM(cfg *config.Config) (*CVM, error) {
+func NewCVM(t config.Target, _ *config.Config) (*CVM, error) {
 	return &CVM{
+		name: t.Name,
 		client: tencentapi.NewVPC(
-			cfg.Tencent.SecretID,
-			cfg.Tencent.SecretKey,
-			cfg.Tencent.Region,
-			cfg.SecurityGroupID,
+			t.SecretID,
+			t.SecretKey,
+			t.Region,
+			t.SecurityGroupID,
 		),
 	}, nil
 }
+
+func (b *CVM) Name() string { return b.name }
 
 func (b *CVM) UpsertWhitelist(currentIP string, oldIP *string, cfg *config.Config) error {
 	cidr := ip.ToCIDR(currentIP)
@@ -54,12 +58,12 @@ func (b *CVM) createIngress(cfg *config.Config, cidr, port string) error {
 	}})
 	if err != nil {
 		if isDuplicate(err) {
-			log.Printf("安全组规则已存在，跳过: %s %s %s", cidr, cfg.Protocol, port)
+			log.Printf("[%s] 安全组规则已存在，跳过: %s %s %s", b.name, cidr, cfg.Protocol, port)
 			return nil
 		}
 		return fmt.Errorf("CreateSecurityGroupPolicies: %w", err)
 	}
-	log.Printf("已添加安全组入站规则: %s %s %s", cidr, cfg.Protocol, port)
+	log.Printf("[%s] 已添加安全组入站规则: %s %s %s", b.name, cidr, cfg.Protocol, port)
 	return nil
 }
 
@@ -72,12 +76,12 @@ func (b *CVM) deleteIngress(cfg *config.Config, cidr, port string) error {
 	}})
 	if err != nil {
 		if isNotFound(err) {
-			log.Printf("旧安全组规则不存在，跳过: %s %s", cidr, port)
+			log.Printf("[%s] 旧安全组规则不存在，跳过: %s %s", b.name, cidr, port)
 			return nil
 		}
 		return fmt.Errorf("DeleteSecurityGroupPolicies: %w", err)
 	}
-	log.Printf("已删除旧安全组入站规则: %s %s %s", cidr, cfg.Protocol, port)
+	log.Printf("[%s] 已删除旧安全组入站规则: %s %s %s", b.name, cidr, cfg.Protocol, port)
 	return nil
 }
 

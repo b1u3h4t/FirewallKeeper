@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -68,23 +69,29 @@ func runOnce(cfg *config.Config, force bool) error {
 		log.Printf("公网 IP: %s -> %s", lastIP, currentIP)
 	}
 
-	b, err := backend.New(cfg)
+	backends, err := backend.NewAll(cfg)
 	if err != nil {
 		return err
 	}
+
+	names := make([]string, len(backends))
+	for i, b := range backends {
+		names[i] = b.Name()
+	}
+	log.Printf("已启用 %d 个目标: %s", len(backends), strings.Join(names, ", "))
 
 	var oldPtr *string
 	if lastIP != "" {
 		oldPtr = &lastIP
 	}
-	if err := b.UpsertWhitelist(currentIP, oldPtr, cfg); err != nil {
+	if err := backend.UpsertAll(backends, currentIP, oldPtr, cfg); err != nil {
 		return err
 	}
 
 	if err := state.Save(cfg.StateFile, currentIP); err != nil {
 		return fmt.Errorf("保存状态: %w", err)
 	}
-	log.Printf("防火墙白名单已更新为 %s", currentIP)
+	log.Printf("全部目标防火墙白名单已更新为 %s", currentIP)
 	return nil
 }
 

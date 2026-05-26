@@ -1,28 +1,17 @@
-# 阿里云国际版轻量 (Simple Application Server) 配置示例
-# cp config.aliyun.example.yaml config.yaml
-
-aliyun:
-  access_key_id: "LTAIxxxxxxxx"
-  access_key_secret: "xxxxxxxxxxxxxxxx"
-  region: "us-east-1"
-
-backend: aliyun_swas
-
-aliyun_swas:
-  instance_id: "your-instance-id"
-
+# 仅阿里云 SWAS 示例（也可与腾讯云 targets 写在同一 config.yaml）
 ports:
   - "22"
   - "443"
 
 protocol: TCP
-rule_description: "auto-ddns-whitelist"
 remove_old_ip: true
 
-ip_check:
-  urls:
-    - "https://ddns.oray.com/checkip"
-    - "https://4.ipw.cn"
-  interval_seconds: 300
+targets:
+  aliyun_swas:
+    enabled: true
+    region: "us-east-1"
+    access_key_id: "LTAIxxxxxxxx"
+    access_key_secret: "xxxxxxxxxxxxxxxx"
+    instance_id: "your-instance-id"
 
 state_file: "/data/state.json"

@@ -10,19 +10,23 @@ import (
 )
 
 type Lighthouse struct {
+	name   string
 	client *tencentapi.LighthouseClient
 }
 
-func NewLighthouse(cfg *config.Config) (*Lighthouse, error) {
+func NewLighthouse(t config.Target, _ *config.Config) (*Lighthouse, error) {
 	return &Lighthouse{
+		name: t.Name,
 		client: tencentapi.NewLighthouse(
-			cfg.Tencent.SecretID,
-			cfg.Tencent.SecretKey,
-			cfg.Tencent.Region,
-			cfg.LighthouseInstanceID,
+			t.SecretID,
+			t.SecretKey,
+			t.Region,
+			t.InstanceID,
 		),
 	}, nil
 }
+
+func (b *Lighthouse) Name() string { return b.name }
 
 func (b *Lighthouse) UpsertWhitelist(currentIP string, oldIP *string, cfg *config.Config) error {
 	cidr := ip.ToCIDR(currentIP)
@@ -53,12 +57,12 @@ func (b *Lighthouse) createRule(cfg *config.Config, cidr, port string) error {
 	}})
 	if err != nil {
 		if isDuplicate(err) {
-			log.Printf("规则已存在，跳过: %s %s %s", cidr, cfg.Protocol, port)
+			log.Printf("[%s] 规则已存在，跳过: %s %s %s", b.name, cidr, cfg.Protocol, port)
 			return nil
 		}
 		return fmt.Errorf("CreateFirewallRules: %w", err)
 	}
-	log.Printf("已添加轻量防火墙规则: %s %s %s", cidr, cfg.Protocol, port)
+	log.Printf("[%s] 已添加轻量防火墙规则: %s %s %s", b.name, cidr, cfg.Protocol, port)
 	return nil
 }
 
@@ -71,12 +75,12 @@ func (b *Lighthouse) deleteRule(cfg *config.Config, cidr, port string) error {
 	}})
 	if err != nil {
 		if isNotFound(err) {
-			log.Printf("旧规则不存在，跳过删除: %s %s", cidr, port)
+			log.Printf("[%s] 旧规则不存在，跳过删除: %s %s", b.name, cidr, port)
 			return nil
 		}
 		return fmt.Errorf("DeleteFirewallRules: %w", err)
 	}
-	log.Printf("已删除旧轻量防火墙规则: %s %s %s", cidr, cfg.Protocol, port)
+	log.Printf("[%s] 已删除旧轻量防火墙规则: %s %s %s", b.name, cidr, cfg.Protocol, port)
 	return nil
 }
 

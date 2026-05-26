@@ -1,16 +1,3 @@
-# Docker 部署用配置示例
-# cp config.docker.example.yaml config.yaml 后按需修改
-
-tencent:
-  secret_id: "AKIDxxxxxxxx"
-  secret_key: "xxxxxxxxxxxxxxxx"
-  region: "ap-guangzhou"
-
-backend: lighthouse
-
-lighthouse:
-  instance_id: "lhins-xxxxxxxx"
-
 ports:
   - "22"
   - "443"
@@ -25,5 +12,19 @@ ip_check:
     - "https://4.ipw.cn"
   interval_seconds: 300
 
-# 容器内固定路径，由 compose 挂载 volume /data
 state_file: "/data/state.json"
+
+targets:
+  tencent_lighthouse:
+    enabled: true
+    region: "ap-guangzhou"
+    secret_id: "AKIDxxxxxxxx"
+    secret_key: "xxxxxxxxxxxxxxxx"
+    instance_id: "lhins-xxxxxxxx"
+
+  aliyun_swas:
+    enabled: true
+    region: "us-east-1"
+    access_key_id: "LTAIxxxxxxxx"
+    access_key_secret: "xxxxxxxxxxxxxxxx"
+    instance_id: "your-instance-id"

@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -8,20 +9,49 @@ import (
 )
 
 type Backend interface {
+	Name() string
 	UpsertWhitelist(ip string, oldIP *string, cfg *config.Config) error
 }
 
-func New(cfg *config.Config) (Backend, error) {
-	switch cfg.Backend {
-	case "lighthouse":
-		return NewLighthouse(cfg)
-	case "cvm":
-		return NewCVM(cfg)
-	case "aliyun_swas":
-		return NewAliyunSWAS(cfg)
-	default:
-		return nil, fmt.Errorf("unknown backend: %s", cfg.Backend)
+// NewAll 根据配置创建所有已启用的后端，可并行更新多个云厂商/实例。
+func NewAll(cfg *config.Config) ([]Backend, error) {
+	var backends []Backend
+	for _, t := range cfg.Targets {
+		b, err := newTarget(t, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", t.Name, err)
+		}
+		backends = append(backends, b)
 	}
+	if len(backends) == 0 {
+		return nil, fmt.Errorf("没有已启用的 targets")
+	}
+	return backends, nil
+}
+
+func newTarget(t config.Target, cfg *config.Config) (Backend, error) {
+	switch t.Provider {
+	case config.ProviderTencentLighthouse:
+		return NewLighthouse(t, cfg)
+	case config.ProviderTencentCVM:
+		return NewCVM(t, cfg)
+	case config.ProviderAliyunSWAS:
+		return NewAliyunSWAS(t, cfg)
+	default:
+		return nil, fmt.Errorf("unsupported provider: %s", t.Provider)
+	}
+}
+
+// UpsertAll 依次更新所有后端；全部成功才返回 nil，否则返回聚合错误。
+func UpsertAll(backends []Backend, ip string, oldIP *string, cfg *config.Config) error {
+	var errs []error
+	for _, b := range backends {
+		logPrefix := fmt.Sprintf("[%s]", b.Name())
+		if err := b.UpsertWhitelist(ip, oldIP, cfg); err != nil {
+			errs = append(errs, fmt.Errorf("%s %w", logPrefix, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func ruleDescription(cfg *config.Config, port string, maxLen int) string {

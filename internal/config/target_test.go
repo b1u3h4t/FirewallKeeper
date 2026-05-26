@@ -1,0 +1,67 @@
+package config
+
+import (
+	"strings"
+	"testing"
+
+	"gopkg.in/yaml.v3"
+)
+
+func TestParseMultipleTargets(t *testing.T) {
+	raw := `
+ports: ["22"]
+targets:
+  tencent_lighthouse:
+    enabled: true
+    region: ap-beijing
+    secret_id: id
+    secret_key: key
+    instance_id: lhins-1
+  aliyun_swas:
+    enabled: true
+    region: us-east-1
+    access_key_id: ak
+    access_key_secret: sk
+    instance_id: swas-1
+`
+	var fc fileConfig
+	if err := yaml.Unmarshal([]byte(raw), &fc); err != nil {
+		t.Fatal(err)
+	}
+	targets, err := buildTargets(fc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 2 {
+		t.Fatalf("want 2 targets, got %d", len(targets))
+	}
+}
+
+func TestLegacyBackendCompat(t *testing.T) {
+	raw := fileConfig{
+		Backend: "lighthouse",
+		Tencent: Tencent{SecretID: "id", SecretKey: "key", Region: "ap-beijing"},
+		Lighthouse: Lighthouse{InstanceID: "lhins-1"},
+	}
+	tg := legacyTarget(raw)
+	if tg == nil {
+		t.Fatal("expected legacy target")
+	}
+	if tg.Provider != ProviderTencentLighthouse {
+		t.Fatalf("got %s", tg.Provider)
+	}
+}
+
+func TestDisabledTargetSkipped(t *testing.T) {
+	raw := fileConfig{
+		Targets: map[string]targetYAML{
+			"tencent_cvm": {Enabled: boolPtr(false), Region: "ap-beijing", SecretID: "a", SecretKey: "b", SecurityGroupID: "sg"},
+		},
+	}
+	_, err := buildTargets(raw)
+	if err == nil || !strings.Contains(err.Error(), "没有任何 enabled") {
+		t.Fatalf("expected no enabled error, got %v", err)
+	}
+}
+
+func boolPtr(v bool) *bool { return &v }

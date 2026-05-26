@@ -1,30 +1,5 @@
-# 复制为 config.yaml 并填写真实配置
-# cp config.example.yaml config.yaml
-
-# ---------- 腾讯云（backend: lighthouse / cvm）----------
-tencent:
-  secret_id: "AKIDxxx"
-  secret_key: "xxx"
-  region: "ap-beijing"
-
-# ---------- 阿里云国际版轻量 Simple Application Server（backend: aliyun_swas）----------
-aliyun:
-  access_key_id: "LTAIxxx"
-  access_key_secret: "xxx"
-  region: "us-east-1"   # 国际地域，如 us-east-1、eu-central-1、ap-southeast-1
-  # endpoint: "swas.us-east-1.aliyuncs.com"  # 可选，默认按 region 生成
-
-# backend: lighthouse | cvm | aliyun_swas
-backend: lighthouse
-
-lighthouse:
-  instance_id: "lhins-xxxx"
-
-aliyun_swas:
-  instance_id: "xxxx"   # 轻量实例 ID
-
-cvm:
-  security_group_id: ""
+# 复制为 config.yaml
+# 可同时启用多个云厂商目标，IP 变更时会依次更新全部 enabled: true 的 targets
 
 ports:
   - "22"
@@ -32,16 +7,57 @@ ports:
   - "6000"
 
 protocol: TCP
-
 rule_description: "auto-ddns-whitelist"
-remove_old_ip: false
+remove_old_ip: true
 
 ip_check:
   urls:
     - "https://ddns.oray.com/checkip"
-    - "https://ip.3322.net"
     - "https://4.ipw.cn"
   interval_seconds: 300
 
 state_file: "~/.cache/FirewallKeeper/state.json"
-# Docker: state_file: "/data/state.json"
+
+# ---------- 多厂商目标（推荐）----------
+targets:
+  # 腾讯云轻量
+  tencent_lighthouse:
+    enabled: true
+    region: "ap-beijing"
+    secret_id: "AKIDxxx"
+    secret_key: "xxx"
+    instance_id: "lhins-xxxx"
+
+  # 腾讯云 CVM 安全组（不需要可设 enabled: false 或删除整段）
+  tencent_cvm:
+    enabled: false
+    region: "ap-beijing"
+    secret_id: "AKIDxxx"
+    secret_key: "xxx"
+    security_group_id: "sg-xxxx"
+
+  # 阿里云国际版 Simple Application Server
+  aliyun_swas:
+    enabled: true
+    region: "us-east-1"
+    access_key_id: "LTAIxxx"
+    access_key_secret: "xxx"
+    instance_id: "your-instance-id"
+
+# 同一类型可配置多个实例（复制一段并改 name 即可）:
+#  aliyun_swas_hk:
+#    provider: aliyun_swas
+#    enabled: true
+#    region: "ap-southeast-1"
+#    access_key_id: "LTAIxxx"
+#    access_key_secret: "xxx"
+#    instance_id: "another-id"
+
+# ---------- 旧版单 backend 配置（仍兼容，勿与 targets 混用）----------
+# backend: lighthouse
+# tencent:
+#   secret_id: "AKIDxxx"
+#   secret_key: "xxx"
+#   region: "ap-beijing"
+# lighthouse:
+#   instance_id: "lhins-xxxx"
