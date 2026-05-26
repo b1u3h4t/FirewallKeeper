@@ -14,6 +14,7 @@ const (
 	ProviderHetznerRobotFirewall = "hetzner_robot_firewall"
 	ProviderAWSLightsail         = "aws_lightsail"
 	ProviderVolcengineSG         = "volcengine_security_group"
+	ProviderNetcupSCPFirewall    = "netcup_scp_firewall"
 )
 
 // Target 表示一个待更新的防火墙目标（一台实例或一个安全组）。
@@ -45,6 +46,12 @@ type Target struct {
 
 	// AWS Lightsail 使用实例名称（非 ID）
 	InstanceName string
+
+	// Netcup SCP OAuth
+	RefreshToken string
+	APIToken     string
+	UserID       string
+	InterfaceMAC string
 }
 
 type targetYAML struct {
@@ -61,10 +68,15 @@ type targetYAML struct {
 	Zone            string `yaml:"zone"`
 	APIToken        string `yaml:"api_token"`
 	FirewallID      string `yaml:"firewall_id"`
+	FirewallPolicyID string `yaml:"firewall_policy_id"`
 	RobotUser       string `yaml:"robot_user"`
 	RobotPassword   string `yaml:"robot_password"`
 	ServerNumber    string `yaml:"server_number"`
 	InstanceName    string `yaml:"instance_name"`
+	RefreshToken    string `yaml:"refresh_token"`
+	AccessToken     string `yaml:"access_token"`
+	UserID          string `yaml:"user_id"`
+	InterfaceMAC    string `yaml:"interface_mac"`
 }
 
 func buildTargets(raw fileConfig) ([]Target, error) {
@@ -106,13 +118,17 @@ func parseTargetsMap(m map[string]targetYAML) ([]Target, error) {
 			AccessKeySecret: t.AccessKeySecret,
 			Endpoint:        t.Endpoint,
 			Zone:            firstNonEmpty(t.Zone, t.Region),
-			FirewallID:      firstNonEmpty(t.FirewallID, t.SecurityGroupID),
+			FirewallID:      firstNonEmpty(t.FirewallID, t.FirewallPolicyID, t.SecurityGroupID),
 			RobotUser:       t.RobotUser,
 			RobotPassword:   t.RobotPassword,
 			ServerNumber:    firstNonEmpty(t.ServerNumber, t.InstanceID),
 			InstanceName:    firstNonEmpty(t.InstanceName, t.InstanceID),
+			RefreshToken:    t.RefreshToken,
+			APIToken:        firstNonEmpty(t.AccessToken, t.APIToken),
+			UserID:          t.UserID,
+			InterfaceMAC:    t.InterfaceMAC,
 		}
-		if target.SecretKey == "" {
+		if target.SecretKey == "" && target.Provider != ProviderNetcupSCPFirewall {
 			target.SecretKey = t.APIToken
 		}
 		applyTargetEnvDefaults(&target)
@@ -217,6 +233,15 @@ func applyTargetEnvDefaults(t *Target) {
 		if t.Endpoint == "" {
 			t.Endpoint = envOr("", "VOLCENGINE_ENDPOINT")
 		}
+	case ProviderNetcupSCPFirewall:
+		t.RefreshToken = envOr(t.RefreshToken, "NETCUP_SCP_REFRESH_TOKEN")
+		t.APIToken = envOr(t.APIToken, "NETCUP_SCP_ACCESS_TOKEN")
+		if t.FirewallID == "" {
+			t.FirewallID = envOr(t.SecurityGroupID, "NETCUP_FIREWALL_POLICY_ID")
+		}
+		if t.Endpoint == "" {
+			t.Endpoint = envOr("", "NETCUP_SCP_API_URL")
+		}
 	}
 }
 
@@ -284,11 +309,18 @@ func validateTarget(t Target) error {
 		if t.SecurityGroupID == "" {
 			return fmt.Errorf("需要 security_group_id")
 		}
+	case ProviderNetcupSCPFirewall:
+		if t.RefreshToken == "" && t.APIToken == "" {
+			return fmt.Errorf("需要 refresh_token 或 access_token（SCP OAuth，见 netcup-cli auth login）")
+		}
+		if t.FirewallID == "" {
+			return fmt.Errorf("需要 firewall_policy_id 或 firewall_id")
+		}
 	default:
-		return fmt.Errorf("不支持的 provider: %s（已知: %s, %s, %s, %s, %s, %s, %s, %s）",
+		return fmt.Errorf("不支持的 provider: %s（已知: %s, %s, %s, %s, %s, %s, %s, %s, %s）",
 			t.Provider, ProviderTencentLighthouse, ProviderTencentCVM, ProviderAliyunSWAS,
 			ProviderScalewaySG, ProviderHetznerCloudFirewall, ProviderHetznerRobotFirewall,
-			ProviderAWSLightsail, ProviderVolcengineSG)
+			ProviderAWSLightsail, ProviderVolcengineSG, ProviderNetcupSCPFirewall)
 	}
 	return nil
 }
@@ -320,6 +352,8 @@ func legacyTarget(raw fileConfig) *Target {
 		backend = ProviderAWSLightsail
 	case "volcengine_security_group", "volcengine_sg", "volcengine":
 		backend = ProviderVolcengineSG
+	case "netcup_scp_firewall", "netcup_firewall", "netcup":
+		backend = ProviderNetcupSCPFirewall
 	}
 
 	t := Target{

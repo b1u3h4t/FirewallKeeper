@@ -16,6 +16,7 @@
 | `hetzner_robot_firewall` | Hetzner Robot | 独立服务器无状态防火墙（[Robot Web Service](https://docs.hetzner.com/robot/)） |
 | `aws_lightsail` | AWS | Lightsail 实例防火墙端口（[Lightsail API](https://docs.aws.amazon.com/lightsail/)） |
 | `volcengine_security_group` | 火山引擎 | ECS/VPC 安全组入站（[私有网络 API](https://www.volcengine.com/docs/6401/70748)） |
+| `netcup_scp_firewall` | Netcup | SCP 防火墙策略入站规则（[netcup-cli](https://github.com/pavelpikta/netcup-cli) / [SCP API](https://www.servercontrolpanel.de)） |
 
 后续扩展新厂商：在 `targets` 中增加对应 `provider` 配置即可。
 
@@ -138,6 +139,17 @@ make docker-logs
 - Hetzner Robot：`HETZNER_ROBOT_USER`、`HETZNER_ROBOT_PASSWORD`、`HETZNER_ROBOT_SERVER_NUMBER`
 - AWS Lightsail：`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_REGION`、`AWS_LIGHTSAIL_INSTANCE_NAME`
 - 火山引擎：`VOLCENGINE_ACCESS_KEY_ID`、`VOLCENGINE_SECRET_ACCESS_KEY`、`VOLCENGINE_REGION`、`VOLCENGINE_SECURITY_GROUP_ID`
+- Netcup SCP：`NETCUP_SCP_REFRESH_TOKEN`、`NETCUP_FIREWALL_POLICY_ID`
+
+### Netcup SCP 说明
+
+基于 [netcup-cli](https://github.com/pavelpikta/netcup-cli) 使用的 **Server Control Panel REST API**：
+
+1. 安装 netcup-cli 并登录：`netcup auth login`（浏览器设备码 OAuth）。
+2. 从 `~/.config/netcup-cli/credentials` 复制 `refresh_token` 到配置 `refresh_token`。
+3. 在 SCP 控制台创建或选定**防火墙策略**，将 `firewall_policy_id` 填为策略数字 ID；策略需已绑定到目标 VPS 网卡。
+4. 可选：填写 `server_id` + `interface_mac`，更新策略后调用 `firewall:reapply` 立即生效（不填则依赖 SCP 自动同步）。
+5. 规则写入策略的 `INGRESS` / `ACCEPT`，`sources` 为 CIDR，`destinationPorts` 为端口。
 
 ### AWS Lightsail 说明
 

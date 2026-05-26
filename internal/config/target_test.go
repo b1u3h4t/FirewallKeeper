@@ -143,6 +143,31 @@ targets:
 	}
 }
 
+func TestParseNetcupTarget(t *testing.T) {
+	raw := `
+ports: ["22"]
+targets:
+  netcup_vps:
+    provider: netcup_scp_firewall
+    enabled: true
+    refresh_token: rt-xxx
+    firewall_policy_id: "42"
+    server_id: "100"
+    interface_mac: "aa:bb:cc:dd:ee:ff"
+`
+	var fc fileConfig
+	if err := yaml.Unmarshal([]byte(raw), &fc); err != nil {
+		t.Fatal(err)
+	}
+	targets, err := buildTargets(fc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 || targets[0].Provider != ProviderNetcupSCPFirewall {
+		t.Fatalf("got %+v", targets)
+	}
+}
+
 func TestDisabledTargetSkipped(t *testing.T) {
 	raw := fileConfig{
 		Targets: map[string]targetYAML{

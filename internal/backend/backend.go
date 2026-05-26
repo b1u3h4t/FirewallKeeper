@@ -47,6 +47,8 @@ func newTarget(t config.Target, cfg *config.Config) (Backend, error) {
 		return NewAWSLightsail(t, cfg)
 	case config.ProviderVolcengineSG:
 		return NewVolcengineSG(t, cfg)
+	case config.ProviderNetcupSCPFirewall:
+		return NewNetcupFirewall(t, cfg)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", t.Provider)
 	}

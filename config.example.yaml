@@ -77,6 +77,16 @@ targets:
     robot_password: "your-robot-password"
     server_number: "321"   # Robot 中的 Server ID
 
+  # Netcup SCP 防火墙策略（参考 netcup-cli / SCP REST API）
+  netcup_vps:
+    enabled: false
+    provider: netcup_scp_firewall
+    refresh_token: "your-scp-refresh-token"   # netcup auth login 后 ~/.config/netcup-cli/credentials
+    firewall_policy_id: "42"                # 控制台防火墙策略 ID
+    # user_id: "123"                        # 可选，默认从 OAuth userinfo 获取
+    # server_id: "100"                      # 可选，填写后更新策略后会 reapply 到该服务器
+    # interface_mac: "aa:bb:cc:dd:ee:ff"    # 可选，不填则使用第一块网卡
+
   # Scaleway Instance 安全组（VPS 防火墙）
   scaleway_vps:
     enabled: false

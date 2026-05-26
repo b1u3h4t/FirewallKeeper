@@ -58,6 +58,12 @@ targets:
     robot_password: "your-robot-password"
     server_number: "321"
 
+  netcup_vps:
+    enabled: false
+    provider: netcup_scp_firewall
+    refresh_token: "your-scp-refresh-token"
+    firewall_policy_id: "42"
+
   scaleway_vps:
     enabled: false
     provider: scaleway_security_group
