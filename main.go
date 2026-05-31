@@ -53,20 +53,25 @@ func runOnce(cfg *config.Config, force bool) error {
 		return err
 	}
 
-	lastIP, err := state.Load(cfg.StateFile)
+	last, err := state.Load(cfg.StateFile)
 	if err != nil {
 		return fmt.Errorf("读取状态: %w", err)
 	}
 
-	if !force && lastIP == currentIP {
-		log.Printf("公网 IP 未变化 (%s)，无需更新", currentIP)
+	ipUnchanged := last.IP == currentIP
+	portsUnchanged := state.PortsEqual(last.Ports, cfg.Ports)
+	if !force && ipUnchanged && portsUnchanged {
+		log.Printf("公网 IP 与端口均未变化 (%s)，无需更新", currentIP)
 		return nil
 	}
 
-	if lastIP == "" {
+	if last.IP == "" {
 		log.Printf("公网 IP: (无) -> %s", currentIP)
-	} else {
-		log.Printf("公网 IP: %s -> %s", lastIP, currentIP)
+	} else if !ipUnchanged {
+		log.Printf("公网 IP: %s -> %s", last.IP, currentIP)
+	}
+	if !portsUnchanged {
+		log.Printf("端口: %v -> %v", last.Ports, cfg.Ports)
 	}
 
 	backends, err := backend.NewAll(cfg)
@@ -81,14 +86,14 @@ func runOnce(cfg *config.Config, force bool) error {
 	log.Printf("已启用 %d 个目标: %s", len(backends), strings.Join(names, ", "))
 
 	var oldPtr *string
-	if lastIP != "" {
-		oldPtr = &lastIP
+	if last.IP != "" {
+		oldPtr = &last.IP
 	}
 	if err := backend.UpsertAll(backends, currentIP, oldPtr, cfg); err != nil {
 		return err
 	}
 
-	if err := state.Save(cfg.StateFile, currentIP); err != nil {
+	if err := state.Save(cfg.StateFile, state.Snapshot{IP: currentIP, Ports: cfg.Ports}); err != nil {
 		return fmt.Errorf("保存状态: %w", err)
 	}
 	log.Printf("全部目标防火墙白名单已更新为 %s", currentIP)
