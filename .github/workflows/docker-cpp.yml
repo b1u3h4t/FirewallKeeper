@@ -50,9 +50,10 @@ jobs:
             echo "push=true" >> "$GITHUB_OUTPUT"
             echo "load=false" >> "$GITHUB_OUTPUT"
           else
-            echo "platforms=linux/amd64" >> "$GITHUB_OUTPUT"
-            echo "push=false" >> "$GITHUB_OUTPUT"
-            echo "load=true" >> "$GITHUB_OUTPUT"
+            # main/master push: publish multi-arch image to GHCR
+            echo "platforms=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+            echo "push=true" >> "$GITHUB_OUTPUT"
+            echo "load=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Log in to GHCR
