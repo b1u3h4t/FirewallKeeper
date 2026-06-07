@@ -27,8 +27,11 @@ std::string tencent_err(const Core::Error& e) {
 
 class LighthouseBackend : public IBackend {
 public:
-    LighthouseBackend(std::string name, std::string instance_id, LighthouseClient client)
-        : name_(std::move(name)), instance_id_(std::move(instance_id)), client_(std::move(client)) {}
+    LighthouseBackend(std::string name, std::string instance_id,
+                      std::unique_ptr<LighthouseClient> client)
+        : name_(std::move(name)),
+          instance_id_(std::move(instance_id)),
+          client_(std::move(client)) {}
 
     std::string name() const override { return name_; }
 
@@ -58,7 +61,7 @@ private:
         req.SetInstanceId(instance_id_);
         req.SetFirewallRules({rule});
 
-        auto outcome = client_.CreateFirewallRules(req);
+        auto outcome = client_->CreateFirewallRules(req);
         if (outcome.IsSuccess()) {
             std::cout << "[" << name_ << "] 已添加轻量防火墙规则: " << cidr << " " << cfg.protocol
                       << " " << port << '\n';
@@ -86,7 +89,7 @@ private:
         req.SetInstanceId(instance_id_);
         req.SetFirewallRules({rule});
 
-        auto outcome = client_.DeleteFirewallRules(req);
+        auto outcome = client_->DeleteFirewallRules(req);
         if (outcome.IsSuccess()) {
             std::cout << "[" << name_ << "] 已删除旧轻量防火墙规则: " << cidr << " " << cfg.protocol
                       << " " << port << '\n';
@@ -103,16 +106,16 @@ private:
 
     std::string name_;
     std::string instance_id_;
-    LighthouseClient client_;
+    std::unique_ptr<LighthouseClient> client_;
 };
 
-LighthouseClient make_client(const config::Target& t) {
+std::unique_ptr<LighthouseClient> make_client(const config::Target& t) {
     Credential cred(t.secret_id, t.secret_key);
     HttpProfile http;
     http.SetEndpoint("lighthouse.tencentcloudapi.com");
     http.SetReqTimeout(30);
     ClientProfile profile(http);
-    return LighthouseClient(cred, t.region, profile);
+    return std::make_unique<LighthouseClient>(cred, t.region, profile);
 }
 
 }  // namespace

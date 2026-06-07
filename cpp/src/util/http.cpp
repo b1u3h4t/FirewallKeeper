@@ -1,11 +1,17 @@
 #include "firewallkeeper/util/http.hpp"
 
 #include <curl/curl.h>
+#include <mutex>
 #include <stdexcept>
 
 namespace firewallkeeper::util {
 
 namespace {
+
+void ensure_curl_global() {
+    static std::once_flag once;
+    std::call_once(once, [] { curl_global_init(CURL_GLOBAL_DEFAULT); });
+}
 
 size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
     auto* out = static_cast<std::string*>(userdata);
@@ -31,15 +37,10 @@ size_t header_callback(char* buffer, size_t size, size_t nitems, void* userdata)
     return size * nitems;
 }
 
-struct CurlGlobal {
-    CurlGlobal() { curl_global_init(CURL_GLOBAL_DEFAULT); }
-    ~CurlGlobal() { curl_global_cleanup(); }
-};
-
 }  // namespace
 
 HttpResponse HttpClient::request(const HttpRequest& req) const {
-    static CurlGlobal curl_global;
+    ensure_curl_global();
 
     HttpResponse resp;
     CURL* curl = curl_easy_init();

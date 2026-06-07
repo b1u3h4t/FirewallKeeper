@@ -28,7 +28,7 @@ std::string tencent_err(const Core::Error& e) {
 
 class CvmBackend : public IBackend {
 public:
-    CvmBackend(std::string name, std::string sg_id, VpcClient client)
+    CvmBackend(std::string name, std::string sg_id, std::unique_ptr<VpcClient> client)
         : name_(std::move(name)), sg_id_(std::move(sg_id)), client_(std::move(client)) {}
 
     std::string name() const override { return name_; }
@@ -62,7 +62,7 @@ private:
         req.SetSecurityGroupId(sg_id_);
         req.SetSecurityGroupPolicySet(set);
 
-        auto outcome = client_.CreateSecurityGroupPolicies(req);
+        auto outcome = client_->CreateSecurityGroupPolicies(req);
         if (outcome.IsSuccess()) {
             std::cout << "[" << name_ << "] 已添加安全组入站规则: " << cidr << " " << cfg.protocol
                       << " " << port << '\n';
@@ -93,7 +93,7 @@ private:
         req.SetSecurityGroupId(sg_id_);
         req.SetSecurityGroupPolicySet(set);
 
-        auto outcome = client_.DeleteSecurityGroupPolicies(req);
+        auto outcome = client_->DeleteSecurityGroupPolicies(req);
         if (outcome.IsSuccess()) {
             std::cout << "[" << name_ << "] 已删除旧安全组入站规则: " << cidr << " " << cfg.protocol
                       << " " << port << '\n';
@@ -110,16 +110,16 @@ private:
 
     std::string name_;
     std::string sg_id_;
-    VpcClient client_;
+    std::unique_ptr<VpcClient> client_;
 };
 
-VpcClient make_client(const config::Target& t) {
+std::unique_ptr<VpcClient> make_client(const config::Target& t) {
     Credential cred(t.secret_id, t.secret_key);
     HttpProfile http;
     http.SetEndpoint("vpc.tencentcloudapi.com");
     http.SetReqTimeout(30);
     ClientProfile profile(http);
-    return VpcClient(cred, t.region, profile);
+    return std::make_unique<VpcClient>(cred, t.region, profile);
 }
 
 }  // namespace
