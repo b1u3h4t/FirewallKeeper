@@ -12,8 +12,14 @@
 #endif
 
 #include <iostream>
+#include <cstdio>
 
 namespace {
+
+void setup_stdio_for_logging() {
+    // Docker / 重定向 stdout 时默认全缓冲，docker logs 看不到输出
+    setvbuf(stdout, nullptr, _IOLBF, 0);
+}
 
 class SdkGuard {
 public:
@@ -54,6 +60,7 @@ private:
 
 int main(int argc, char* argv[]) {
     try {
+        setup_stdio_for_logging();
         const SdkGuard sdk;
         const auto opts = firewallkeeper::app::parse_cli(argc, argv);
 
