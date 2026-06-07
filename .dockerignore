@@ -10,3 +10,9 @@ FirewallKeeper
 .DS_Store
 docker-compose*.yml
 Makefile
+# 构建产物与缓存（C++ / Go）
+cpp/build
+**/build/_deps
+**/build/CMakeFiles
+.cursor
+dist

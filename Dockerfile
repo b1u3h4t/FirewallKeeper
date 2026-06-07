@@ -1,4 +1,5 @@
-# 多阶段构建：容器内编译，Go 使用 goproxy.cn
+# 多阶段构建：Go 版（默认 Dockerfile）
+# C++ 版见 Dockerfile.cpp 与 make docker-cpp-up
 # 拉取基础镜像需配置 registry-mirrors（如 https://docker.deepflood.xyz）
 # 若构建阶段 DNS/网络异常，compose 已设置 build.network: host
 

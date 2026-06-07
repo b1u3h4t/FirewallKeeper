@@ -1,0 +1,9 @@
+# C++ 版镜像覆盖（与 docker-compose.yml 叠加使用）
+#   docker compose -f docker-compose.yml -f docker-compose.cpp.yml up -d --build
+# 或: make docker-cpp-up
+
+services:
+  firewallkeeper:
+    build:
+      dockerfile: Dockerfile.cpp
+    image: firewallkeeper:cpp

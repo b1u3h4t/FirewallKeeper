@@ -2,8 +2,9 @@ services:
   firewallkeeper:
     build:
       context: .
+      dockerfile: ${DOCKERFILE:-Dockerfile}
       network: host
-    image: firewallkeeper:latest
+    image: ${IMAGE:-firewallkeeper:latest}
     container_name: FirewallKeeper
     restart: unless-stopped
     env_file:

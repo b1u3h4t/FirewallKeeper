@@ -122,10 +122,39 @@ make build
 
 ## Docker
 
+**Go 版（默认，镜像小、构建快）：**
+
 ```bash
 cp config.docker.example.yaml config.yaml
 make docker-up
 make docker-logs
+```
+
+**C++ 版（含 AWS / 腾讯云 / 火山官方 SDK）：**
+
+```bash
+cp config.docker.example.yaml config.yaml
+make docker-cpp-up          # compose 单架构构建并启动
+make docker-cpp-once        # 单次检测
+```
+
+多架构构建与推送（Buildx，`linux/amd64` + `linux/arm64`）：
+
+```bash
+# 本地加载当前平台
+bash cpp/scripts/docker-build.sh
+
+# 推送到 registry（示例 GHCR）
+IMAGE=ghcr.io/<user>/firewallkeeper TAG=cpp \
+PLATFORMS=linux/amd64,linux/arm64 PUSH=1 \
+REGISTRY=ghcr.io/<user> \
+bash cpp/scripts/docker-build.sh
+```
+
+也可通过环境变量切换 compose 使用的 Dockerfile：
+
+```bash
+DOCKERFILE=Dockerfile.cpp IMAGE=firewallkeeper:cpp make docker-up
 ```
 
 ## 环境变量

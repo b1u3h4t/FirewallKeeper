@@ -17,3 +17,10 @@ state.json
 .DS_Store
 .idea/
 .vscode/
+
+# C++ 构建产物
+cpp/build/
+cpp/*.o
+dist/
+docker-cpp-build.log
+build-linux.log
