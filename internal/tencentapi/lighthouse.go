@@ -41,3 +41,19 @@ func (c *LighthouseClient) DeleteRules(rules []FirewallRule) error {
 		"FirewallRules": rules,
 	})
 }
+
+func (c *LighthouseClient) DescribeRules() ([]FirewallRule, error) {
+	var resp struct {
+		Response struct {
+			FirewallRuleSet []FirewallRule `json:"FirewallRuleSet"`
+		} `json:"Response"`
+	}
+	if err := c.api.DoInto("DescribeFirewallRules", map[string]any{
+		"InstanceId": c.instanceID,
+		"Limit":      100,
+		"Offset":     0,
+	}, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Response.FirewallRuleSet, nil
+}

@@ -31,30 +31,50 @@ func (b *CVM) Name() string { return b.name }
 
 func (b *CVM) UpsertWhitelist(currentIP string, oldIP *string, cfg *config.Config) error {
 	cidr := ip.ToCIDR(currentIP)
-	for _, port := range cfg.Ports {
-		if err := b.createIngress(cfg, cidr, port); err != nil {
-			return err
-		}
+	portSpec, ok := joinFirewallPorts(cfg.Ports)
+	ports := cfg.Ports
+	if ok {
+		ports = []string{portSpec}
 	}
 
+	// 先删旧 IP，再加新规则，降低安全组策略条数触顶概率
 	if cfg.RemoveOldIP && oldIP != nil && *oldIP != "" && *oldIP != currentIP {
 		oldCIDR := ip.ToCIDR(*oldIP)
-		for _, port := range cfg.Ports {
+		for _, port := range ports {
 			if err := b.deleteIngress(cfg, oldCIDR, port); err != nil {
 				return err
 			}
+		}
+		// 合并模式时同时清理旧逐端口规则
+		if ok {
+			for _, port := range cfg.Ports {
+				_ = b.deleteIngress(cfg, oldCIDR, port)
+			}
+		}
+	}
+
+	for _, port := range ports {
+		if err := b.createIngress(cfg, cidr, port); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (b *CVM) createIngress(cfg *config.Config, cidr, port string) error {
+	desc := ruleDescription(cfg, port, 100)
+	if strings.Contains(port, ",") || strings.Contains(port, "-") {
+		desc = cfg.RuleDescription
+		if len(desc) > 100 {
+			desc = desc[:100]
+		}
+	}
 	err := b.client.CreateIngress([]tencentapi.SecurityGroupPolicy{{
 		Protocol:          strings.ToLower(cfg.Protocol),
 		Port:              port,
 		CidrBlock:         cidr,
 		Action:            "ACCEPT",
-		PolicyDescription: ruleDescription(cfg, port, 100),
+		PolicyDescription: desc,
 	}})
 	if err != nil {
 		if isDuplicate(err) {

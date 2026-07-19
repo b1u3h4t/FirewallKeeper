@@ -74,6 +74,23 @@ func ruleDescription(cfg *config.Config, port string, maxLen int) string {
 	return desc
 }
 
+// joinFirewallPorts 将多个端口合并为云厂商单条规则可用的 Port 字段（逗号分隔，最长 64）。
+// 若超长则返回 ok=false，调用方应回退为逐端口规则。
+func joinFirewallPorts(ports []string) (string, bool) {
+	if len(ports) == 0 {
+		return "", false
+	}
+	if len(ports) == 1 {
+		p := strings.TrimSpace(ports[0])
+		return p, p != "" && len(p) <= 64
+	}
+	joined := strings.Join(ports, ",")
+	if len(joined) > 64 {
+		return "", false
+	}
+	return joined, true
+}
+
 func isDuplicate(err error) bool {
 	if err == nil {
 		return false
@@ -93,4 +110,14 @@ func isNotFound(err error) bool {
 	return strings.Contains(msg, "notfound") ||
 		strings.Contains(msg, "not found") ||
 		strings.Contains(msg, "不存在")
+}
+
+func isQuotaExceeded(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "limitexceeded") ||
+		strings.Contains(msg, "quota") ||
+		strings.Contains(msg, "firewallruleslimitexceeded")
 }

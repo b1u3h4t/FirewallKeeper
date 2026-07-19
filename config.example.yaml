@@ -5,6 +5,8 @@ ports:
   - "22"
   - "443"
   - "6000"
+# 也可写成单条多端口（腾讯轻量/CVM 会自动把列表合并成一条规则，例如 22,443,6000）：
+# ports: ["22,443,6000-6002"]
 
 protocol: TCP
 rule_description: "auto-ddns-whitelist"

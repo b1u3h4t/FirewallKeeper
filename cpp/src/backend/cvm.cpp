@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <tencentcloud/core/Credential.h>
 #include <tencentcloud/core/profile/ClientProfile.h>
 #include <tencentcloud/core/profile/HttpProfile.h>
@@ -36,13 +37,40 @@ public:
     bool upsert_whitelist(const std::string& ip, const std::optional<std::string>& old_ip,
                           const config::Config& cfg, std::string& error) override {
         const auto cidr = ip::to_cidr(ip);
-        return sync_whitelist_ports(
-            ip, old_ip, cfg,
-            [&](const std::string& port, std::string& err) { return create_ingress(cfg, cidr, port, err); },
-            [&](const std::string& port, std::string& err) {
-                return delete_ingress(cfg, ip::to_cidr(*old_ip), port, err);
-            },
-            error);
+        std::string joined;
+        {
+            if (cfg.ports.size() == 1) {
+                joined = util::trim(cfg.ports[0]);
+                if (joined.size() > 64) joined.clear();
+            } else if (!cfg.ports.empty()) {
+                std::ostringstream oss;
+                for (size_t i = 0; i < cfg.ports.size(); ++i) {
+                    if (i) oss << ',';
+                    oss << util::trim(cfg.ports[i]);
+                }
+                joined = oss.str();
+                if (joined.size() > 64) joined.clear();
+            }
+        }
+        const std::vector<std::string> ports =
+            joined.empty() ? cfg.ports : std::vector<std::string>{joined};
+
+        if (cfg.remove_old_ip && old_ip && !old_ip->empty() && *old_ip != ip) {
+            const auto old_cidr = ip::to_cidr(*old_ip);
+            for (const auto& port : ports) {
+                if (!delete_ingress(cfg, old_cidr, port, error)) return false;
+            }
+            if (!joined.empty()) {
+                for (const auto& port : cfg.ports) {
+                    std::string ignore;
+                    delete_ingress(cfg, old_cidr, port, ignore);
+                }
+            }
+        }
+        for (const auto& port : ports) {
+            if (!create_ingress(cfg, cidr, port, error)) return false;
+        }
+        return true;
     }
 
 private:
@@ -53,7 +81,13 @@ private:
         policy.SetPort(port);
         policy.SetCidrBlock(cidr);
         policy.SetAction("ACCEPT");
-        policy.SetPolicyDescription(rule_description(cfg, port, 100));
+        if (port.find(',') != std::string::npos || port.find('-') != std::string::npos) {
+            auto desc = cfg.rule_description;
+            if (desc.size() > 100) desc.resize(100);
+            policy.SetPolicyDescription(desc);
+        } else {
+            policy.SetPolicyDescription(rule_description(cfg, port, 100));
+        }
 
         SecurityGroupPolicySet set;
         set.SetIngress({policy});

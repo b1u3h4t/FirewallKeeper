@@ -51,6 +51,11 @@ type responseEnvelope struct {
 }
 
 func (c *Client) Do(action string, payload any) error {
+	return c.DoInto(action, payload, nil)
+}
+
+// DoInto 发起 API 请求；out 非 nil 时将整个响应 JSON 反序列化到 out。
+func (c *Client) DoInto(action string, payload any, out any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -94,6 +99,11 @@ func (c *Client) Do(action string, payload any) error {
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, truncate(string(respBody), 512))
+	}
+	if out != nil {
+		if err := json.Unmarshal(respBody, out); err != nil {
+			return fmt.Errorf("解析响应失败: %w, body=%s", err, truncate(string(respBody), 512))
+		}
 	}
 	return nil
 }
