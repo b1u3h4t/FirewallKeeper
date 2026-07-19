@@ -3,6 +3,7 @@
 #include "firewallkeeper/ip/ip.hpp"
 #include "firewallkeeper/util/string_util.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -35,19 +36,40 @@ bool is_quota_exceeded(const std::string& msg) {
 }
 
 // 合并为腾讯轻量 Port 字段（逗号分隔，最长 64）；超长返回空串表示回退逐端口。
+// 端口按字典序排序；Describe 回传顺序可能不同，比较时用 same_firewall_ports。
 std::string join_firewall_ports(const std::vector<std::string>& ports) {
     if (ports.empty()) return {};
-    if (ports.size() == 1) {
-        auto p = util::trim(ports[0]);
-        return (p.empty() || p.size() > 64) ? std::string{} : p;
+    std::vector<std::string> parts;
+    parts.reserve(ports.size());
+    for (const auto& raw : ports) {
+        auto p = util::trim(raw);
+        if (!p.empty()) parts.push_back(std::move(p));
     }
+    if (parts.empty()) return {};
+    std::sort(parts.begin(), parts.end());
     std::ostringstream oss;
-    for (size_t i = 0; i < ports.size(); ++i) {
+    for (size_t i = 0; i < parts.size(); ++i) {
         if (i) oss << ',';
-        oss << util::trim(ports[i]);
+        oss << parts[i];
     }
     auto joined = oss.str();
     return joined.size() > 64 ? std::string{} : joined;
+}
+
+bool same_firewall_ports(const std::string& a, const std::string& b) {
+    if (a == b) return true;
+    auto norm = [](const std::string& s) {
+        std::vector<std::string> out;
+        std::stringstream ss(s);
+        std::string item;
+        while (std::getline(ss, item, ',')) {
+            item = util::trim(item);
+            if (!item.empty()) out.push_back(std::move(item));
+        }
+        std::sort(out.begin(), out.end());
+        return out;
+    };
+    return norm(a) == norm(b);
 }
 
 std::string combined_rule_desc(const config::Config& cfg, const std::string& port) {
@@ -239,7 +261,7 @@ private:
         std::vector<FirewallRule> to_delete;
         for (const auto& r : managed) {
             if (r.GetCidrBlock() != cidr) continue;
-            if (r.GetPort() == keep_port) continue;
+            if (same_firewall_ports(r.GetPort(), keep_port)) continue;
             to_delete.push_back(r);
         }
         if (!delete_rules(to_delete, error)) return false;

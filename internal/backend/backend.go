@@ -3,6 +3,7 @@ package backend
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/b1u3h4t/FirewallKeeper/internal/config"
@@ -75,20 +76,58 @@ func ruleDescription(cfg *config.Config, port string, maxLen int) string {
 }
 
 // joinFirewallPorts 将多个端口合并为云厂商单条规则可用的 Port 字段（逗号分隔，最长 64）。
-// 若超长则返回 ok=false，调用方应回退为逐端口规则。
+// 端口按字典序排序，便于与云端回读结果对齐；若超长则返回 ok=false，调用方应回退为逐端口规则。
 func joinFirewallPorts(ports []string) (string, bool) {
 	if len(ports) == 0 {
 		return "", false
 	}
-	if len(ports) == 1 {
-		p := strings.TrimSpace(ports[0])
-		return p, p != "" && len(p) <= 64
+	parts := make([]string, 0, len(ports))
+	for _, p := range ports {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		parts = append(parts, p)
 	}
-	joined := strings.Join(ports, ",")
+	if len(parts) == 0 {
+		return "", false
+	}
+	sort.Strings(parts)
+	joined := strings.Join(parts, ",")
 	if len(joined) > 64 {
 		return "", false
 	}
 	return joined, true
+}
+
+// sameFirewallPorts 比较两条 Port 字段是否表示同一组端口（忽略顺序）。
+// 腾讯云 Describe 可能回传与 Create 不同的端口顺序，不能用字符串全等。
+func sameFirewallPorts(a, b string) bool {
+	if a == b {
+		return true
+	}
+	norm := func(s string) []string {
+		parts := strings.Split(s, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				out = append(out, p)
+			}
+		}
+		sort.Strings(out)
+		return out
+	}
+	ap, bp := norm(a), norm(b)
+	if len(ap) != len(bp) {
+		return false
+	}
+	for i := range ap {
+		if ap[i] != bp[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func isDuplicate(err error) bool {

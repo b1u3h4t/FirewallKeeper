@@ -143,8 +143,13 @@ jobs:
         working-directory: /tmp/digests
         run: |
           set -eux
+          # 须用双引号展开 ${IMAGE}；单引号会把字面量 ${IMAGE}@sha256:... 传给 imagetools
+          refs=()
+          for digest in *; do
+            refs+=("${IMAGE}@sha256:${digest}")
+          done
           docker buildx imagetools create \
             -t "${IMAGE}:${TAG}" \
             -t "${IMAGE}:${TAG}-${GITHUB_SHA}" \
-            $(printf '${IMAGE}@sha256:%s ' *)
+            "${refs[@]}"
           docker buildx imagetools inspect "${IMAGE}:${TAG}"

@@ -198,7 +198,7 @@ func (b *Lighthouse) deleteLegacyPerPortRules(cfg *config.Config, cidr, keepPort
 		if !strings.EqualFold(r.Action, "ACCEPT") || r.CidrBlock != cidr {
 			continue
 		}
-		if r.Port == keepPort {
+		if sameFirewallPorts(r.Port, keepPort) {
 			continue
 		}
 		toDelete = append(toDelete, tencentapi.FirewallRule{
