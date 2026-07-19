@@ -30,8 +30,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# AWS C++ SDK（Lightsail，共享库安装到 /usr/local；源码/构建目录用 cache 加速）
-RUN --mount=type=cache,target=/tmp/aws-cache \
+# AWS C++ SDK（Lightsail；按架构隔离 cache，避免交叉污染）
+RUN --mount=type=cache,id=aws-sdk-${TARGETARCH},target=/tmp/aws-cache \
     if [ -f "${PREFIX}/lib/cmake/AWSSDK/AWSSDKConfig.cmake" ]; then exit 0; fi \
     && AWS_SRC=/tmp/aws-cache/src \
     && AWS_BUILD=/tmp/aws-cache/build \
