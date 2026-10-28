@@ -1,5 +1,10 @@
 name: Docker C++
 
+# 运行器策略：
+#   - pull_request（可能来自 fork）→ GitHub 托管 runner，绝不落到自托管机器
+#   - push / workflow_dispatch / tag（可信触发）→ nc3 自托管 runner（标签 nc3）
+#   - arm64 / macOS 产物仍用 GitHub 托管原生 runner（nc3 是 x86_64）
+
 on:
   push:
     branches: [main, master]
@@ -64,11 +69,13 @@ jobs:
         include:
           - platform: linux/amd64
             runner: ubuntu-latest
+            runner_self: nc3
             arch: amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
+            runner_self: ubuntu-24.04-arm
             arch: arm64
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner_self }}
     steps:
       - uses: actions/checkout@v5
 
@@ -115,7 +122,7 @@ jobs:
   merge:
     if: github.event_name != 'pull_request'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: nc3
     permissions:
       contents: read
       packages: write
